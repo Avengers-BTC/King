@@ -56,7 +56,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
+    - name: Check Vercel secrets
+      id: check-secrets
+      run: |
+        if [ -z "${{ secrets.VERCEL_TOKEN }}" ] || [ -z "${{ secrets.VERCEL_ORG_ID }}" ] || [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
+          echo "vercel_configured=false" >> $GITHUB_OUTPUT
+          echo "⚠️ Vercel deployment secrets are not configured"
+        else
+          echo "vercel_configured=true" >> $GITHUB_OUTPUT
+          echo "✅ Vercel deployment secrets are configured"
+        fi
+    
     - name: Deploy to Vercel
+      if: steps.check-secrets.outputs.vercel_configured == 'true'
       uses: amondnet/vercel-action@v25
       with:
         vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -64,3 +76,21 @@ jobs:
         vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
         vercel-args: '--prod'
         working-directory: ./
+    
+    - name: Deployment Instructions
+      if: steps.check-secrets.outputs.vercel_configured == 'false'
+      run: |
+        echo "🚀 BUILD SUCCESSFUL! 🎉"
+        echo ""
+        echo "To enable automatic deployment, add these secrets to your GitHub repository:"
+        echo "1. Go to: Settings → Secrets and variables → Actions"
+        echo "2. Add the following repository secrets:"
+        echo "   - VERCEL_TOKEN: Your Vercel API token"
+        echo "   - VERCEL_ORG_ID: Your Vercel organization ID"
+        echo "   - VERCEL_PROJECT_ID: Your Vercel project ID"
+        echo "   - DATABASE_URL: Your production database URL"
+        echo "   - NEXTAUTH_SECRET: A secure random string (32+ characters)"
+        echo "   - NEXTAUTH_URL: Your production URL (e.g., https://your-app.vercel.app)"
+        echo "   - NEXT_PUBLIC_SITE_URL: Same as NEXTAUTH_URL"
+        echo ""
+        echo "📖 For detailed setup instructions, see: https://vercel.com/docs/concepts/git/vercel-for-github"
