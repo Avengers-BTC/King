@@ -9,7 +9,7 @@ We use GitHub Actions for CI/CD. The workflow is defined in `.github/workflows/c
 ## What the CI/CD Pipeline Does
 
 1. **Continuous Integration**:
-   - Runs on every push to the `main` branch and on every pull request
+   - Runs on every push to the `main` or `master` branch and on every pull request
    - Installs dependencies
    - Generates Prisma Client
    - Lints the code
@@ -17,7 +17,7 @@ We use GitHub Actions for CI/CD. The workflow is defined in `.github/workflows/c
    - (In the future, it will run tests when they are added)
 
 2. **Continuous Deployment**:
-   - Only runs on pushes to the `main` branch
+   - Only runs on pushes to the `main` or `master` branch
    - Currently a placeholder that needs to be configured based on your hosting provider
 
 ## Setup Requirements
