@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "reset-db": "ts-node --transpile-only prisma/reset-db.ts"
+  }
+}
