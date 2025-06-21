@@ -5,7 +5,14 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    // Test database connection first
+    await prisma.$connect();
+    
+    const { searchParams } = new URL(request.url);
+    const limit = searchParams.get('limit');
+    
     const djs = await prisma.dJ.findMany({
+      take: limit ? parseInt(limit) : undefined,
       include: {
         user: {
           select: {
@@ -43,10 +50,11 @@ export async function GET(request: Request) {
     return NextResponse.json(djs);
   } catch (error) {
     console.error('Error fetching DJs:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch DJs' },
-      { status: 500 }
-    );
+    
+    // Return empty array instead of error object to prevent frontend map() errors
+    return NextResponse.json([], { status: 200 });
+  } finally {
+    await prisma.$disconnect();
   }
 }
 

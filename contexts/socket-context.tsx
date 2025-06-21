@@ -22,96 +22,92 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
 
   useEffect(() => {
+    // Only attempt connection if authenticated
     if (status !== 'authenticated' || !session) {
       console.log('[Socket.IO] Not authenticated, skipping connection');
+      // Clean up existing connection if user logged out
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+        setIsConnected(false);
+      }
       return;
     }
 
-    if (connectionAttempts > 5) {
-      console.error('Too many connection attempts, stopping reconnection');
+    // Prevent too many connection attempts
+    if (connectionAttempts > 3) {
+      console.warn('[Socket.IO] Too many connection attempts, waiting before retry');
       return;
-    }    console.log('[Socket.IO] Attempting to connect with session');
-    const socketInstance = io(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000', {
+    }
+
+    // Get the base URL for socket connection
+    const socketUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+    console.log('[Socket.IO] Attempting to connect to:', socketUrl);
+    
+    const socketInstance = io(socketUrl, {
       path: '/api/socketio',
       addTrailingSlash: false,
       reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-      timeout: 30000,
-      withCredentials: true, // This will automatically include cookies
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+      timeout: 20000,
+      withCredentials: true,
       autoConnect: true,
       transports: ['polling', 'websocket'],
-      // Increase retry intervals to reduce connection pressure
-      reconnectionDelayMax: 10000,
+      reconnectionDelayMax: 5000,
       randomizationFactor: 0.5
-    });    socketInstance.on('connect', () => {
+    });
+
+    socketInstance.on('connect', () => {
       setIsConnected(true);
       setConnectionAttempts(0);
       console.log('[Socket.IO] Socket connected:', socketInstance.id);
-      
-      // Set up a heartbeat to keep the connection alive
-      const heartbeatInterval = setInterval(() => {
-        if (socketInstance.connected) {
-          console.log('[Socket.IO] Sending heartbeat ping');
-          socketInstance.emit('heartbeat');
-        }
-      }, 30000); // Send a heartbeat every 30 seconds
-      
-      // Store the interval ID on the socket instance for cleanup
-      (socketInstance as any).heartbeatInterval = heartbeatInterval;
     });
 
     socketInstance.on('disconnect', (reason) => {
       setIsConnected(false);
       console.log('[Socket.IO] Socket disconnected:', reason);
       
-      // Handle specific disconnect reasons
+      // Handle authentication errors
       if (reason === 'io server disconnect') {
-        // The server has forcefully disconnected the socket
-        console.log('[Socket.IO] Server disconnected the socket, attempting to reconnect...');
-        socketInstance.connect();
+        console.log('[Socket.IO] Server disconnected, may be authentication issue');
       }
-      // For other disconnect reasons, the socket will automatically try to reconnect
-    });    socketInstance.on('connect_error', (error) => {
-      console.error('[Socket.IO] Socket connection error:', error);
+    });
+
+    socketInstance.on('connect_error', (error) => {
+      console.error('[Socket.IO] Connection error:', error.message);
       setIsConnected(false);
       setConnectionAttempts(prev => prev + 1);
+      
+      // If it's an authentication error, don't keep retrying
+      if (error.message?.includes('Authentication') || error.message?.includes('session')) {
+        console.warn('[Socket.IO] Authentication error, stopping reconnection attempts');
+        socketInstance.disconnect();
+      }
     });
 
     socketInstance.on('error', (error) => {
       console.error('[Socket.IO] Socket error:', error);
-      // Don't set isConnected to false for general errors
-      // as this doesn't necessarily mean the connection is lost
-    });
-    
-    // Listen for reconnect attempts
-    socketInstance.io.on('reconnect_attempt', (attempt) => {
-      console.log(`[Socket.IO] Reconnect attempt ${attempt}`);
-    });
-    
-    socketInstance.io.on('reconnect', (attempt) => {
-      console.log(`[Socket.IO] Reconnected after ${attempt} attempts`);
-      setIsConnected(true);
-    });
-    
-    socketInstance.io.on('reconnect_error', (error) => {
-      console.error('[Socket.IO] Reconnect error:', error);
     });
 
-    setSocket(socketInstance);    return () => {
-      console.log('[Socket.IO] Cleaning up connection');
-      // Clear the heartbeat interval if it exists
-      if ((socketInstance as any).heartbeatInterval) {
-        clearInterval((socketInstance as any).heartbeatInterval);
-      }
+    setSocket(socketInstance);
+
+    return () => {
+      console.log('[Socket.IO] Cleaning up socket connection');
       socketInstance.disconnect();
     };
-  }, [connectionAttempts, status, session]);
+  }, [status, session, connectionAttempts]);
 
   // Reset connection attempts when session changes
   useEffect(() => {
     if (status === 'authenticated') {
       setConnectionAttempts(0);
+    } else if (status === 'unauthenticated') {
+      setConnectionAttempts(0);
+      setIsConnected(false);
     }
   }, [status]);
 

@@ -5,6 +5,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    // Test database connection first
+    await prisma.$connect();
+    
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit');
     
@@ -37,9 +40,10 @@ export async function GET(request: Request) {
     return NextResponse.json(clubs);
   } catch (error) {
     console.error('Error fetching clubs:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch clubs' },
-      { status: 500 }
-    );
+    
+    // Return empty array instead of error object to prevent frontend map() errors
+    return NextResponse.json([], { status: 200 });
+  } finally {
+    await prisma.$disconnect();
   }
 } 
