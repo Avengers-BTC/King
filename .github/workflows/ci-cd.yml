@@ -12,9 +12,10 @@ jobs:
 
     # Define environment variables needed for the build
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-      NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://user:password@localhost:5432/nightvibe_build' }}
+      NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'build-only-secret-key-not-for-production-use-minimum-32-chars' }}
+      NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL || 'http://localhost:3000' }}
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
 
     strategy:
       matrix:
