@@ -20,11 +20,22 @@ if (process.env.VERCEL === '1') {
     const dbUrlPreview = process.env.DATABASE_URL.substring(0, 15) + '...';
     console.log(`Using database URL: ${dbUrlPreview}`);
     
+    // Make sure we're not using Prisma Data Proxy
+    if (process.env.DATABASE_URL.startsWith('prisma://')) {
+      console.error('❌ ERROR: DATABASE_URL is using Prisma Data Proxy format!');
+      console.log('Please use a direct PostgreSQL connection string instead.');
+      console.log('Example: postgresql://username:password@host:port/database');
+      process.exit(1);
+    }
+    
+    // Set environment variable to disable Prisma Data Proxy
+    process.env.PRISMA_GENERATE_DATAPROXY = 'false';
+    
     execSync('npx prisma migrate deploy', { 
       stdio: 'inherit',
       env: {
         ...process.env,
-        DATABASE_URL: process.env.DATABASE_URL
+        PRISMA_GENERATE_DATAPROXY: 'false'
       }
     });
     console.log('✅ Database migrations completed successfully!');
