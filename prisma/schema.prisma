@@ -1,5 +1,8 @@
 generator client {
   provider = "prisma-client-js"
+  // This will make Prisma print the exact database URL it's using
+  // during generation, which can help debug connection issues
+  previewFeatures = ["tracing"]
 }
 
 datasource db {
