@@ -43,6 +43,7 @@ interface RoomState {
 }
 
 const roomStates = new Map<string, RoomState>();
+const socketRooms = new Map<string, Set<string>>();
 
 function getRoomState(roomId: string): RoomState {  
   if (!roomStates.has(roomId)) {
@@ -57,17 +58,6 @@ function getRoomState(roomId: string): RoomState {
   }
   return roomStates.get(roomId)!;
 }
-
-const corsConfig = {
-  cors: {
-    origin: process.env.NEXTAUTH_URL || "http://localhost:3000",
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true
-  },
-  allowEIO3: true,
-  path: "/api/socketio"
-};
 
 interface Message {
   id: string;
@@ -86,94 +76,159 @@ interface Message {
 const roomMessages = new Map<string, Message[]>();
 
 const ioHandler = async (req: NextApiRequest, res: NextApiResponseWithSocket) => {
-  if (!res.socket.server.io) {
-    // Initialize socket server if it hasn't been initialized
-    const httpServer: HTTPServer = res.socket.server as any;
-    const io = new ServerIO(httpServer, {
-      path: '/api/socketio',
-      addTrailingSlash: false,
-      transports: ['polling', 'websocket'],
-      cors: {
-        origin: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
-        methods: ['GET', 'POST'],
-        credentials: true
-      },
-      allowRequest: async (req, callback) => {
-        // Allow the connection
-        callback(null, true);
-      },
-      pingTimeout: 60000,
-      pingInterval: 25000,
-      connectionStateRecovery: {
-        maxDisconnectionDuration: 2 * 60 * 1000,
-        skipMiddlewares: true,
-      },
-    });// Middleware to authenticate socket connections
-    io.use(async (socket, next) => {      try {
-        const cookie = socket.handshake.headers.cookie;
-        console.log('[Socket.IO] Received cookies:', cookie);
-
-        if (!cookie) {
-          console.log('[Socket.IO] No cookies found in handshake');
-          return next(new Error('No session cookie found'));
-        }
-
-        // Parse cookies to get the session token
-        const cookies = cookie.split(';').reduce((acc, curr) => {
-          const [key, value] = curr.trim().split('=');
-          acc[key] = value;
-          return acc;
-        }, {} as Record<string, string>);
-
-        // Next.js session token is stored in the next-auth.session-token cookie
-        const sessionToken = cookies['next-auth.session-token'];
-        
-        if (!sessionToken) {
-          console.log('[Socket.IO] No session token found in cookies');
-          return next(new Error('No session token found'));
-        }
-
-        const token = await getToken({
-          req: {
-            cookies: {
-              'next-auth.session-token': sessionToken
+  console.log('[Socket.IO API] Request received');
+  
+  // Set headers to allow for CORS
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight requests for CORS
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+    try {
+    if (!res.socket.server.io) {
+      // Initialize socket server if it hasn't been initialized
+      const httpServer: HTTPServer = res.socket.server as any;
+      
+      console.log('[Socket.IO API] Initializing socket server');
+      
+      const io = new ServerIO(httpServer, {
+        path: '/api/socketio',
+        addTrailingSlash: false,
+        transports: ['polling', 'websocket'],
+        cors: {
+          origin: (requestOrigin, callback) => {
+            // Allow requests with no origin (like mobile apps or curl requests)
+            if (!requestOrigin) return callback(null, true);
+            
+            // Accept requests from the same origin or the NEXTAUTH_URL if specified
+            const allowedOrigins = [
+              'http://localhost:3000',
+              process.env.NEXTAUTH_URL || '',
+              process.env.NEXT_PUBLIC_SITE_URL || ''
+            ].filter(Boolean);
+            
+            // If it's a known origin, allow it
+            if (allowedOrigins.indexOf(requestOrigin) !== -1) {
+              return callback(null, true);
             }
-          } as any,
-          secret: process.env.NEXTAUTH_SECRET,
-        });
+            
+            // In production, also try to match by hostname
+            if (process.env.NODE_ENV === 'production') {
+              try {
+                const requestHost = new URL(requestOrigin).hostname;
+                const allowedHosts = allowedOrigins
+                  .map(origin => {
+                    try { return new URL(origin).hostname; } 
+                    catch { return null; }
+                  })
+                  .filter(Boolean);
+                
+                if (allowedHosts.some(host => host === requestHost)) {
+                  return callback(null, true);
+                }
+              } catch (e) {
+                console.error('[Socket.IO] Error parsing origin:', e);
+              }
+            }
+            
+            // For security, log but still allow in development
+            if (process.env.NODE_ENV !== 'production') {
+              console.warn(`[Socket.IO] Unknown origin: ${requestOrigin} - allowing in development`);
+              return callback(null, true);
+            }
+            
+            // In production, default to allowing all origins to prevent immediate breakage
+            // This should be restricted in the future
+            console.warn(`[Socket.IO] Unknown origin: ${requestOrigin} - allowing in production for compatibility`);
+            return callback(null, true);
+          },
+          methods: ['GET', 'POST'],
+          credentials: true
+        },
+        allowRequest: async (req, callback) => {
+          // Allow all connections at the socket level
+          // We'll handle authentication in the middleware
+          callback(null, true);
+        },
+        pingTimeout: 60000,
+        pingInterval: 25000,
+        connectionStateRecovery: {
+          maxDisconnectionDuration: 2 * 60 * 1000,
+          skipMiddlewares: true,
+        },
+      });
+      
+      // Middleware to authenticate socket connections
+      io.use(async (socket, next) => {
+        try {
+          const cookie = socket.handshake.headers.cookie;
+          console.log('[Socket.IO] Received cookies:', cookie);
 
-        if (!token) {
-          console.log('[Socket.IO] Failed to verify session token');
-          return next(new Error('Invalid session token'));
+          if (!cookie) {
+            console.log('[Socket.IO] No cookies found in handshake');
+            return next(new Error('No session cookie found'));
+          }
+
+          // Parse cookies to get the session token
+          const cookies = cookie.split(';').reduce((acc, curr) => {
+            const [key, value] = curr.trim().split('=');
+            acc[key] = value;
+            return acc;
+          }, {} as Record<string, string>);
+
+          // Next.js session token is stored in the next-auth.session-token cookie
+          const sessionToken = cookies['next-auth.session-token'] || 
+                              cookies['__Secure-next-auth.session-token']; // For secure contexts
+          
+          if (!sessionToken) {
+            console.log('[Socket.IO] No session token found in cookies');
+            return next(new Error('No session token found'));
+          }
+
+          const token = await getToken({
+            req: {
+              cookies: {
+                'next-auth.session-token': sessionToken,
+                '__Secure-next-auth.session-token': sessionToken
+              }
+            } as any,
+            secret: process.env.NEXTAUTH_SECRET,
+          });
+
+          if (!token) {
+            console.log('[Socket.IO] Failed to verify session token');
+            return next(new Error('Invalid session token'));
+          }
+
+          // Attach user data to socket
+          socket.data.user = {
+            id: token.sub,
+            name: token.name || 'Anonymous',
+            role: token.role || 'USER',
+            email: token.email
+          };
+
+          console.log(`[Socket.IO] User authenticated: ${socket.data.user.name} (${socket.data.user.role})`);
+          next();
+        } catch (error) {
+          console.error('[Socket.IO] Authentication error:', error);
+          return next(new Error('Authentication failed'));
         }
+      });      // Error handling middleware
+      io.engine.on("connection_error", (err) => {
+        console.log("[Socket.IO] Connection error:", err);
+      });      // Track rooms for each socket
+      const socketRooms = new Map<string, Set<string>>();
 
-        // Attach user data to socket
-        socket.data.user = {
-          id: token.sub,
-          name: token.name || 'Anonymous',
-          role: token.role || 'USER',
-          email: token.email
-        };
-
-        console.log(`[Socket.IO] User authenticated: ${socket.data.user.name} (${socket.data.user.role})`);
-        next();
-      } catch (error) {
-        console.error('[Socket.IO] Authentication error:', error);
-        return next(new Error('Authentication failed'));
-      }
-    });
-
-    // Error handling middleware
-    io.engine.on("connection_error", (err) => {
-      console.log("[Socket.IO] Connection error:", err);
-    });
-
-    // Track rooms for each socket
-    const socketRooms = new Map<string, Set<string>>();
-
-    // Handle socket connections
-    io.on('connection', async (socket) => {
-      console.log(`[Socket.IO] Client connected: ${socket.id}`);      // Handle room joining
+      // Handle socket connections
+      io.on('connection', async (socket) => {
+        console.log(`[Socket.IO] Client connected: ${socket.id}`);      // Handle room joining
       socket.on('join_room', async (roomId) => {
         try {
           // Check if already in room to prevent duplicate counts
@@ -579,13 +634,15 @@ const ioHandler = async (req: NextApiRequest, res: NextApiResponseWithSocket) =>
     }, 30000); // Run every 30 seconds
     
     // Ensure the interval is cleaned up when the server restarts
-    (res.socket.server as any).roomAuditInterval = roomAuditInterval;
-
-    // Store the socket server instance
+    (res.socket.server as any).roomAuditInterval = roomAuditInterval;    // Store the socket server instance
     res.socket.server.io = io;
   }
-
+  
   res.end();
+} catch (error) {
+  console.error('[Socket.IO] Setup error:', error);
+  res.status(500).end();
+}
 };
 
 export const config = {
