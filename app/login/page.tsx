@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { Separator } from '@/components/ui/separator';
+import SessionDebugger from '@/components/session-debugger';
 
 export default function LoginPage() {
   const { login, isLoading, signInWithGoogle } = useAuth();
@@ -20,12 +21,31 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(formData.email, formData.password);
+    console.log("[Login] Submitting login form:", formData.email);
+    
+    try {
+      // Check if the auth endpoint is available
+      const healthCheck = await fetch('/api/health');
+      console.log("[Login] API health check:", healthCheck.status);
+      
+      // Proceed with login
+      const result = await login(formData.email, formData.password);
+      console.log("[Login] Login result:", result);
+      
+      if (result) {
+        console.log("[Login] Login successful, redirecting...");
+        // Force navigation to dashboard after successful login
+        window.location.href = "/dashboard";
+      }
+    } catch (error) {
+      console.error("[Login] Error during login:", error);
+    }
   };
 
   return (
     <div className="min-h-screen bg-app-bg flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-gradient-to-br from-neon-cyan/5 via-transparent to-electric-pink/5"></div>
+      <SessionDebugger />
       
       <Card className="w-full max-w-md glass-card relative z-10">
         <CardHeader className="text-center">

@@ -19,9 +19,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
-  const { data: session, status } = useSession();
-
-  useEffect(() => {
+  const { data: session, status } = useSession();    useEffect(() => {
     // Only attempt connection if authenticated
     if (status !== 'authenticated' || !session) {
       console.log('[Socket.IO] Not authenticated, skipping connection');
@@ -38,12 +36,16 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     if (connectionAttempts > 3) {
       console.warn('[Socket.IO] Too many connection attempts, waiting before retry');
       return;
-    }    // Get the base URL for socket connection - always use the current window location
+    }
+    
+    // Get the base URL for socket connection - always use the current window location
     const socketUrl = typeof window !== 'undefined' 
       ? window.location.origin 
       : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
     console.log('[Socket.IO] Attempting to connect to:', socketUrl);
+    console.log('[Socket.IO] Using path:', '/api/socketio');
+    console.log('[Socket.IO] Transport:', ['polling']);
     
     // Check if we're in development or production
     const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
@@ -57,9 +59,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         .catch(err => {
           console.error('[Socket.IO] Endpoint check failed:', err);
         });
-    }
-    
-    const socketInstance = io(socketUrl, {
+    }    const socketInstance = io(socketUrl, {
       path: '/api/socketio',
       addTrailingSlash: false,
       reconnection: true,
@@ -68,11 +68,11 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       timeout: 20000,
       withCredentials: true,
       autoConnect: true,
-      // Always try polling first, especially in production to avoid WebSocket connection issues
-      transports: ['polling', 'websocket'],
+      // Use polling only for now to ensure compatibility
+      transports: ['polling'],
       reconnectionDelayMax: 5000,
       randomizationFactor: 0.5
-    });    socketInstance.on('connect', () => {
+    });socketInstance.on('connect', () => {
       setIsConnected(true);
       setConnectionAttempts(0);
       console.log('[Socket.IO] Socket connected:', socketInstance.id);

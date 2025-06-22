@@ -7,30 +7,45 @@ import { UserInput } from "@/lib/actions/auth";
 export function useAuth() {
   const { data: session, status, update } = useSession();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-
-  const login = async (email: string, password: string) => {
+  const [isLoading, setIsLoading] = useState(false);  const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
+      console.log("[useAuth] Attempting login for:", email);
+      
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
 
+      console.log("[useAuth] Login result:", result);
+
       if (result?.error) {
         toast.error(result.error);
         return false;
-      }      // After successful login, update session to get the latest user data
+      }
+      
+      // After successful login, update session to get the latest user data
+      console.log("[useAuth] Login successful, updating session");
       await update();
       
       toast.success("Welcome back!");
       
-      // Redirect based on user role
+      // Force navigation based on user role
       if (session?.user?.role === "DJ") {
-        router.push("/dj/dashboard");
+        console.log("[useAuth] Redirecting to DJ dashboard");
+        if (typeof window !== 'undefined') {
+          window.location.href = "/dj/dashboard";
+        } else {
+          router.push("/dj/dashboard");
+        }
       } else {
-        router.push("/dashboard");
+        console.log("[useAuth] Redirecting to user dashboard");
+        if (typeof window !== 'undefined') {
+          window.location.href = "/dashboard";
+        } else {
+          router.push("/dashboard");
+        }
       }
       return true;
     } catch (error) {

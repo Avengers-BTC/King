@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { GlowButton } from '@/components/ui/glow-button';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
+import SessionDebugger from '@/components/session-debugger';
 
 interface UserProfile {
   id: string;
@@ -45,12 +46,45 @@ const upcomingEvents: Array<{
 ];
 
 export default function DashboardPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, status, updateSession } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [socketHealthStatus, setSocketHealthStatus] = useState<string | null>(null);
+  const [authDebug, setAuthDebug] = useState<string>("Initializing");
+
+  // Add a debug effect to log authentication status
+  useEffect(() => {
+    console.log("[Dashboard] Auth Status:", status);
+    console.log("[Dashboard] Is Authenticated:", isAuthenticated);
+    console.log("[Dashboard] User:", user);
+    
+    setAuthDebug(`Status: ${status}, Authenticated: ${isAuthenticated ? 'Yes' : 'No'}, User: ${user ? 'Present' : 'Null'}`);
+    
+    // If we have "loading" status for more than a brief moment, try refreshing the session
+    if (status === "loading" && updateSession) {
+      const timeout = setTimeout(() => {
+        console.log("[Dashboard] Session still loading, forcing refresh");
+        updateSession();
+      }, 2000);
+      
+      return () => clearTimeout(timeout);
+    }
+    
+    // Force navigation to dashboard if authenticated
+    if (status === "authenticated" && user && typeof window !== 'undefined') {
+      console.log("[Dashboard] User authenticated, ensuring we're on the dashboard");
+      // Get current path
+      const currentPath = window.location.pathname;
+      
+      // If we're at login but authenticated, manually push to dashboard
+      if (currentPath === "/login") {
+        console.log("[Dashboard] Redirecting from login to dashboard");
+        window.location.href = "/dashboard";
+      }
+    }
+  }, [status, isAuthenticated, user, updateSession]);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -146,14 +180,27 @@ export default function DashboardPage() {
   const checkSocketHealth = async () => {
     try {
       setSocketHealthStatus('checking');
+      
+      // First, check basic health endpoint
       const response = await fetch('/api/socketio-health');
       const data = await response.json();
       
       console.log('Socket.io health check:', data);
       
+      // Then, check the Socket.io test endpoint
+      const testResponse = await fetch('/api/socketio-test');
+      const testData = await testResponse.json();
+      
+      console.log('Socket.io test details:', testData);
+      
       if (response.ok) {
         setSocketHealthStatus('healthy');
         toast.success('Socket.io endpoint is available');
+        
+        // Display additional test info
+        if (testResponse.ok) {
+          toast.info(`Socket.io config: ${testData.transports.join(', ')} transport`);
+        }
       } else {
         setSocketHealthStatus('unhealthy');
         toast.error('Socket.io endpoint check failed');
@@ -168,9 +215,28 @@ export default function DashboardPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-app-bg flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md px-4">
           <h1 className="text-2xl font-bold text-app-text mb-4">Please log in to access your dashboard</h1>
-          <GlowButton href="/login">Go to Login</GlowButton>
+          <div className="mb-6 p-4 bg-app-surface rounded text-sm text-app-text-muted">
+            <p>Auth Debug: {authDebug}</p>
+            <p className="mt-2">Current path: {typeof window !== 'undefined' ? window.location.pathname : 'N/A'}</p>
+            <p className="mt-2">If you were just logged in, you may be experiencing a session recognition issue.</p>
+          </div>
+          <div className="flex flex-col space-y-4 items-center">
+            <GlowButton href="/login">Go to Login</GlowButton>
+            
+            {updateSession && (
+              <button 
+                onClick={() => {
+                  updateSession();
+                  toast.info("Refreshing session...");
+                }}
+                className="text-sm px-3 py-1 bg-app-surface rounded hover:bg-electric-pink/20 text-app-text"
+              >
+                Refresh Session
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -181,6 +247,10 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-app-bg">
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-4 p-3 bg-app-surface rounded-lg text-sm text-app-text-muted">
+            <p>Auth Debug: {authDebug}</p>
+            <p className="mt-1">Status: Loading profile data...</p>
+          </div>
           <div className="animate-pulse">
             <div className="h-20 bg-app-surface rounded-lg mb-8"></div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -266,6 +336,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-app-bg">
       <Navbar />
+      <SessionDebugger />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}

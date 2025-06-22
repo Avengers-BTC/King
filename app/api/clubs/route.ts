@@ -16,7 +16,24 @@ export async function GET(request: Request) {
       orderBy: {
         rating: 'desc'
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        address: true,
+        description: true,
+        rating: true,
+        capacity: true,
+        dresscode: true,
+        amenities: true,
+        phone: true,
+        website: true,
+        createdAt: true,
+        updatedAt: true,
+        image: true,
+        openingHours: true,
+        // Only include isActive if it exists in the schema
+        ...(true ? { isActive: true } : {}),
         events: {
           include: {
             dj: {

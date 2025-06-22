@@ -96,11 +96,10 @@ const ioHandler = async (req: NextApiRequest, res: NextApiResponseWithSocket) =>
       const httpServer: HTTPServer = res.socket.server as any;
       
       console.log('[Socket.IO API] Initializing socket server');
-      
-      const io = new ServerIO(httpServer, {
+        const io = new ServerIO(httpServer, {
         path: '/api/socketio',
         addTrailingSlash: false,
-        transports: ['polling', 'websocket'],
+        transports: ['polling'],
         cors: {
           origin: (requestOrigin, callback) => {
             // Allow requests with no origin (like mobile apps or curl requests)
