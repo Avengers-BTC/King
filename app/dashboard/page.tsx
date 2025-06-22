@@ -48,22 +48,88 @@ export default function DashboardPage() {
   const { user, isAuthenticated } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [socketHealthStatus, setSocketHealthStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!user?.id) return;
 
       try {
-        const response = await fetch(`/api/users/${user.id}`);
+        setIsLoading(true);
+        
+        // Display deployment info for debugging
+        console.log('Environment:', process.env.NODE_ENV);
+        console.log('Site URL:', process.env.NEXT_PUBLIC_SITE_URL || 'Not set');
+        console.log('Current origin:', typeof window !== 'undefined' ? window.location.origin : 'SSR');
+        
+        // First check if the API is healthy
+        const healthCheck = await fetch('/api/health', {
+          // Add cache: 'no-store' to avoid caching issues
+          cache: 'no-store',
+          headers: {
+            'x-debug': 'true'
+          }
+        });
+        
+        let healthData = null;
+        try {
+          healthData = await healthCheck.json();
+          console.log('Health check response:', healthData);
+        } catch (e) {
+          console.error('Failed to parse health check response:', e);
+        }
+        
+        if (!healthCheck.ok) {
+          console.error('API health check failed:', healthCheck.status, healthCheck.statusText);
+          toast.error(`API service is currently unavailable (${healthCheck.status}). Please try again later.`);
+          setIsLoading(false);
+          return;
+        }
+        
+        const response = await fetch(`/api/users/${user.id}`, {
+          cache: 'no-store',
+          headers: {
+            'x-debug': 'true'
+          }
+        });
         if (response.ok) {
           const profile = await response.json();
           setUserProfile(profile);
+          setRetryCount(0); // Reset retry count on success
         } else {
-          toast.error('Failed to load profile');
+          let errorText = '';
+          try {
+            const errorData = await response.text();
+            errorText = errorData;
+            console.error('Failed to load profile:', response.status, response.statusText, errorData);
+          } catch (e) {
+            console.error('Could not parse error response:', e);
+          }
+          
+          if (response.status === 404) {
+            toast.error('User profile not found');
+          } else {
+            toast.error(`Failed to load profile (${response.status}). Please try again later.`);
+            // Store error details for debugging
+            setErrorDetails(`Status: ${response.status} ${response.statusText}\nResponse: ${errorText}`);
+          }
         }
       } catch (error) {
-        toast.error('Error loading profile');
         console.error('Error fetching user profile:', error);
+        toast.error(`Error connecting to server: ${error instanceof Error ? error.message : String(error)}`);
+        setErrorDetails(`Error: ${error instanceof Error ? error.message : String(error)}`);
+        
+        // Auto-retry up to 3 times with exponential backoff
+        if (retryCount < 3) {
+          const backoffTime = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s backoff
+          toast.info(`Retrying in ${backoffTime/1000} seconds...`);
+          
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
+          }, backoffTime);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -71,8 +137,33 @@ export default function DashboardPage() {
 
     if (isAuthenticated && user) {
       fetchUserProfile();
+    } else {
+      setIsLoading(false);
     }
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, retryCount]);
+
+  // Function to check Socket.io health
+  const checkSocketHealth = async () => {
+    try {
+      setSocketHealthStatus('checking');
+      const response = await fetch('/api/socketio-health');
+      const data = await response.json();
+      
+      console.log('Socket.io health check:', data);
+      
+      if (response.ok) {
+        setSocketHealthStatus('healthy');
+        toast.success('Socket.io endpoint is available');
+      } else {
+        setSocketHealthStatus('unhealthy');
+        toast.error('Socket.io endpoint check failed');
+      }
+    } catch (error) {
+      console.error('Socket.io health check error:', error);
+      setSocketHealthStatus('error');
+      toast.error(`Socket.io check error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
 
   if (!isAuthenticated) {
     return (
@@ -99,6 +190,62 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        <Footer />
+      </div>
+    );
+  }
+  
+  if (!userProfile && isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-app-bg">
+        <Navbar />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold text-app-text mb-4">Unable to load profile</h2>
+            <p className="text-app-text-muted mb-6">We're having trouble connecting to the server or retrieving your profile information.</p>
+            <div className="flex flex-col items-center gap-4">
+              <GlowButton onClick={() => setRetryCount(prev => prev + 1)}>
+                Retry
+              </GlowButton>
+              
+              <button
+                onClick={checkSocketHealth}
+                className="text-sm px-3 py-1 bg-app-surface rounded hover:bg-electric-pink/20 text-app-text"
+              >
+                {socketHealthStatus === 'checking' ? 'Checking Socket.io...' : 
+                 socketHealthStatus === 'healthy' ? '✓ Socket.io OK' : 
+                 socketHealthStatus === 'unhealthy' ? '✗ Socket.io Failed' : 
+                 'Check Socket.io Connection'}
+              </button>
+              
+              {errorDetails && (
+                <button 
+                  onClick={() => {
+                    toast.info("Technical details copied to clipboard");
+                    if (typeof navigator !== 'undefined') {
+                      navigator.clipboard.writeText(errorDetails);
+                    }
+                  }}
+                  className="text-sm text-app-text/60 hover:text-electric-pink underline"
+                >
+                  Copy technical details
+                </button>
+              )}
+              
+              <div className="mt-4 p-4 bg-app-bg/50 rounded text-left max-w-lg mx-auto">
+                <p className="text-sm text-app-text-muted mb-2">For Vercel deployment, ensure these environment variables are set:</p>
+                <ul className="text-xs text-app-text/70 list-disc list-inside space-y-1">
+                  <li>DATABASE_URL (PostgreSQL connection string)</li>
+                  <li>NEXTAUTH_URL (set to https://king-self-two.vercel.app)</li>
+                  <li>NEXTAUTH_SECRET (random string for NextAuth)</li>
+                  <li>NEXT_PUBLIC_SITE_URL (set to https://king-self-two.vercel.app)</li>
+                </ul>
+                <p className="text-xs text-electric-pink mt-2">Fixed: Removed duplicate Socket.io route that was causing conflicts</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <Footer />
       </div>
     );
   }

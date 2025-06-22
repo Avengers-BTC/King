@@ -38,14 +38,26 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     if (connectionAttempts > 3) {
       console.warn('[Socket.IO] Too many connection attempts, waiting before retry');
       return;
-    }
-
-    // Get the base URL for socket connection
+    }    // Get the base URL for socket connection - always use the current window location
     const socketUrl = typeof window !== 'undefined' 
       ? window.location.origin 
       : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
     console.log('[Socket.IO] Attempting to connect to:', socketUrl);
+    
+    // Check if we're in development or production
+    const isDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    
+    // First, ping the socketio endpoint to ensure it's available
+    if (typeof window !== 'undefined') {
+      fetch(`${socketUrl}/api/socketio`)
+        .then(res => {
+          console.log('[Socket.IO] Endpoint check response:', res.status);
+        })
+        .catch(err => {
+          console.error('[Socket.IO] Endpoint check failed:', err);
+        });
+    }
     
     const socketInstance = io(socketUrl, {
       path: '/api/socketio',
@@ -56,15 +68,16 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       timeout: 20000,
       withCredentials: true,
       autoConnect: true,
+      // Always try polling first, especially in production to avoid WebSocket connection issues
       transports: ['polling', 'websocket'],
       reconnectionDelayMax: 5000,
       randomizationFactor: 0.5
-    });
-
-    socketInstance.on('connect', () => {
+    });    socketInstance.on('connect', () => {
       setIsConnected(true);
       setConnectionAttempts(0);
       console.log('[Socket.IO] Socket connected:', socketInstance.id);
+      console.log('[Socket.IO] Connection URL:', socketUrl);
+      console.log('[Socket.IO] Connection path:', '/api/socketio');
     });
 
     socketInstance.on('disconnect', (reason) => {

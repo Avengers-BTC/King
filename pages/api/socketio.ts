@@ -6,6 +6,10 @@ import type { Socket as NetSocket } from 'net';
 import { isRateLimited } from '@/lib/rate-limiter';
 import { getToken } from 'next-auth/jwt';
 
+// IMPORTANT: This is the primary Socket.io implementation used by the application.
+// DO NOT create a duplicate route in app/api/socketio/ as it will cause conflicts.
+// This file uses the Pages Router API format which is different from the App Router.
+
 interface SocketServer extends HTTPServer {
   io?: ServerIO;
 }
