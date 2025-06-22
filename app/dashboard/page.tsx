@@ -202,7 +202,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <h2 className="text-2xl font-bold text-app-text mb-4">Unable to load profile</h2>
-            <p className="text-app-text-muted mb-6">We're having trouble connecting to the server or retrieving your profile information.</p>
+            <p className="text-app-text-muted mb-6">We&apos;re having trouble connecting to the server or retrieving your profile information.</p>
             <div className="flex flex-col items-center gap-4">
               <GlowButton onClick={() => setRetryCount(prev => prev + 1)}>
                 Retry
