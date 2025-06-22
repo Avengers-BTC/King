@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "cross-env NODE_ENV=production node scripts/handle-prisma-deploy.js && next build",
+    "build": "cross-env NODE_ENV=production node scripts/handle-prisma-deploy.js && node scripts/debug-prisma.js && next build",
     "build:local": "next build",
     "start": "next start",
     "lint": "next lint",
     "seed": "ts-node prisma/seed.ts",
     "reset-db": "ts-node --transpile-only prisma/reset-db.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "debug-prisma": "node scripts/debug-prisma.js"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

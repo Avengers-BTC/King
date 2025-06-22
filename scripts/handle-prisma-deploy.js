@@ -12,6 +12,29 @@ if (!process.env.DATABASE_URL) {
   process.exit(0);
 }
 
+// Validate DATABASE_URL format
+const databaseUrl = process.env.DATABASE_URL;
+console.log('DATABASE_URL type:', typeof databaseUrl);
+console.log('DATABASE_URL length:', databaseUrl.length);
+console.log('DATABASE_URL first 10 chars:', databaseUrl.substring(0, 10));
+console.log('DATABASE_URL starts with postgresql://', databaseUrl.startsWith('postgresql://'));
+console.log('DATABASE_URL starts with postgres://', databaseUrl.startsWith('postgres://'));
+
+// Check for common issues
+if (databaseUrl.startsWith('"') || databaseUrl.startsWith("'")) {
+  console.error('❌ ERROR: DATABASE_URL contains quotes! Removing them...');
+  process.env.DATABASE_URL = databaseUrl.replace(/^['"]|['"]$/g, '');
+  console.log('Fixed DATABASE_URL:', process.env.DATABASE_URL);
+}
+
+if (!process.env.DATABASE_URL.startsWith('postgresql://') && !process.env.DATABASE_URL.startsWith('postgres://')) {
+  console.error('❌ ERROR: DATABASE_URL does not start with postgresql:// or postgres://');
+  console.log('Current DATABASE_URL:', process.env.DATABASE_URL);
+  console.log('Please update your DATABASE_URL to start with postgresql:// or postgres://');
+  console.log('Example: postgresql://username:password@host:port/database');
+  process.exit(1);
+}
+
 // Only run migrations on Vercel production environment
 if (process.env.VERCEL === '1') {
   console.log('📦 Running database migrations in Vercel environment...');
@@ -19,14 +42,6 @@ if (process.env.VERCEL === '1') {
     // Print first few characters of DATABASE_URL to verify it exists (hide sensitive info)
     const dbUrlPreview = process.env.DATABASE_URL.substring(0, 15) + '...';
     console.log(`Using database URL: ${dbUrlPreview}`);
-    
-    // Make sure we're not using Prisma Data Proxy
-    if (process.env.DATABASE_URL.startsWith('prisma://')) {
-      console.error('❌ ERROR: DATABASE_URL is using Prisma Data Proxy format!');
-      console.log('Please use a direct PostgreSQL connection string instead.');
-      console.log('Example: postgresql://username:password@host:port/database');
-      process.exit(1);
-    }
     
     // Set environment variable to disable Prisma Data Proxy
     process.env.PRISMA_GENERATE_DATAPROXY = 'false';
