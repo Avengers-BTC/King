@@ -1,19 +1,7 @@
 import { getServerSession } from "next-auth/next";
-import { NextAuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-
-export const authOptions: NextAuthOptions = {
-    adapter: PrismaAdapter(prisma),
-    providers: [
-        GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID!,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        }),
-    ],
-};
+import { authOptions } from "../api/auth/[...nextauth]/auth-options";
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
