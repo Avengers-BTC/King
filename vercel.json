@@ -1,7 +1,13 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build:vercel",
   "installCommand": "npm install",
   "framework": "nextjs",
+  "functions": {
+    "pages/api/socketio.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
   "builds": [
     {
       "src": "package.json",
@@ -9,6 +15,14 @@
     }
   ],
   "build": {
-    "env": {}
-  }
+    "env": {
+      "SKIP_ENV_VALIDATION": "1"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/socket.io/(.*)",
+      "destination": "/api/socketio"
+    }
+  ]
 }

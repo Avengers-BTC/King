@@ -98,6 +98,18 @@ const config: Config = {
           '0%': { backgroundPosition: '-40rem 0' },
           '100%': { backgroundPosition: '40rem 0' },
         },
+        'fade-in': {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'fade-in-up': {
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'typing-dots': {
+          '0%, 60%, 100%': { transform: 'translateY(0)' },
+          '30%': { transform: 'translateY(-10px)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -107,6 +119,9 @@ const config: Config = {
         'spin-slow': 'spin-slow 8s linear infinite',
         'pulse-scale': 'pulse-scale 2s ease-in-out infinite',
         'shimmer': 'shimmer 3s linear infinite',
+        'fade-in': 'fade-in 0.3s ease-out',
+        'fade-in-up': 'fade-in-up 0.5s ease-out',
+        'typing-dots': 'typing-dots 1.4s ease-in-out infinite',
       },
     },
   },

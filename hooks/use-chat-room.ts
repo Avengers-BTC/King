@@ -13,6 +13,8 @@ interface CustomSocket extends Socket {
 interface TypingUser {
   id: string;
   name: string;
+  role?: string;
+  image?: string;
 }
 
 interface OnlineUser {
@@ -88,8 +90,27 @@ export function useChatRoom(roomId: string): UseChatRoomResult {
     });
 
     // Handle typing updates
-    socket.on('typing_update', (users: TypingUser[]) => {
-      setTypingUsers(users);
+    socket.on('user_typing', ({ userId, socketId, userName, userRole }: { 
+      userId: string, 
+      socketId: string, 
+      userName?: string, 
+      userRole?: string 
+    }) => {
+      setTypingUsers(prev => {
+        const existing = prev.find(u => u.id === userId);
+        if (!existing) {
+          return [...prev, { 
+            id: userId, 
+            name: userName || `User ${userId.slice(0, 8)}`, 
+            role: userRole 
+          }];
+        }
+        return prev;
+      });
+    });
+
+    socket.on('user_stopped_typing', ({ userId }: { userId: string }) => {
+      setTypingUsers(prev => prev.filter(u => u.id !== userId));
     });    // Handle moderation events
     socket.on('user_muted', ({ userId }: { userId: string }) => {
       setMutedUsers(prev => new Set(prev).add(userId));
@@ -109,12 +130,14 @@ export function useChatRoom(roomId: string): UseChatRoomResult {
       setIsDJ(true);
     }    // Clean up
     return () => {
-      socket.off('connect');
-      socket.off('disconnect');
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('room_joined', handleRoomJoined);
       socket.off('user_count');
       socket.off('error');
       socket.off('online_users');
-      socket.off('typing_update');
+      socket.off('user_typing');
+      socket.off('user_stopped_typing');
       socket.off('user_muted');
       socket.off('user_unmuted');
     };

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/vercel-startup.js && cross-env NODE_ENV=production node scripts/handle-prisma-deploy.js && node scripts/debug-prisma.js && next build",
+    "build:vercel": "next build",
     "build:local": "next build",
     "start": "next start",
     "lint": "next lint",
