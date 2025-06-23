@@ -1,79 +1,65 @@
-import { PrismaClient } from '@prisma/client';
-
-// Initialize the Prisma client
-const prisma = new PrismaClient();
+// Reset database script
+import { prisma } from '../lib/prisma';
 
 async function resetDatabase() {
   try {
     console.log('Starting database reset...');
 
-    // Delete all records in reverse order of dependencies
-    // This avoids foreign key constraint errors
-
+    // Delete all data in reverse order of dependencies
+    
     // Comments
     await prisma.comment.deleteMany();
     console.log('Deleted all comments');
 
-    // MomentLikes
+    // Moments and likes
     await prisma.momentLike.deleteMany();
-    console.log('Deleted all moment likes');
-
-    // Moments
     await prisma.moment.deleteMany();
-    console.log('Deleted all moments');
+    console.log('Deleted all moments and likes');
 
-    // Follows
-    await prisma.follow.deleteMany();
-    console.log('Deleted all follows');
-
-    // Events
+    // Events and schedules
+    await prisma.djSchedule.deleteMany();
     await prisma.event.deleteMany();
-    console.log('Deleted all events');
-
-    // DJ Club Affiliations
-    await prisma.dJClubAffiliation.deleteMany();
-    console.log('Deleted all DJ club affiliations');
-
-    // DJ Performance History
-    await prisma.dJPerformanceHistory.deleteMany();
-    console.log('Deleted all DJ performance history');
-
-    // DJ Schedule
-    await prisma.dJSchedule.deleteMany();
-    console.log('Deleted all DJ schedules');
-
-    // DJs
-    await prisma.dJ.deleteMany();
-    console.log('Deleted all DJs');
+    console.log('Deleted all events and schedules');
 
     // Clubs
     await prisma.club.deleteMany();
     console.log('Deleted all clubs');
 
-    // Sessions
-    await prisma.session.deleteMany();
-    console.log('Deleted all sessions');
+    // DJ-related tables
+    await prisma.djRating.deleteMany();
+    await prisma.djClubAffiliation.deleteMany();
+    await prisma.djPerformanceHistory.deleteMany();
+    console.log('Deleted all DJ ratings, affiliations, and history');
 
-    // Accounts
-    await prisma.account.deleteMany();
-    console.log('Deleted all accounts');
+    // Fan followings
+    await prisma.fanFollowing.deleteMany();
+    console.log('Deleted all fan followings');
 
-    // Verification Tokens
+    // User relationships
+    await prisma.follow.deleteMany();
+    console.log('Deleted all user follows');
+
+    // DJs
+    await prisma.dj.deleteMany();
+    console.log('Deleted all DJs');
+
+    // Auth-related tables
     await prisma.verificationToken.deleteMany();
-    console.log('Deleted all verification tokens');
-
-    // Users (should be deleted last as it's referenced by many tables)
+    await prisma.session.deleteMany();
+    await prisma.account.deleteMany();
+    console.log('Deleted all auth-related data');
+    
+    // Users (must be last due to relationships)
     await prisma.user.deleteMany();
     console.log('Deleted all users');
 
     console.log('Database reset completed successfully!');
-    
   } catch (error) {
     console.error('Error resetting database:', error);
+    process.exit(1);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-// Run the reset function
 resetDatabase();

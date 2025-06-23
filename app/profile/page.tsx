@@ -36,9 +36,10 @@ interface UserData {
 }
 
 export default function ProfilePage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, updateSession } = useAuth();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
@@ -47,6 +48,7 @@ export default function ProfilePage() {
     location: ''
   });
   const [activeTab, setActiveTab] = useState('moments');
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (isAuthenticated && user?.id) {
@@ -58,14 +60,41 @@ export default function ProfilePage() {
 
   const fetchUserData = async () => {
     try {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setError('No user ID available');
+        setLoading(false);
+        return;
+      }
       
+      console.log('Fetching user profile:', user.id);
       const response = await fetch(`/api/users/${user.id}`);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch user data');
+        const errorData = await response.text();
+        console.error('Error response:', errorData);
+        
+        if (response.status === 404) {
+          // If profile is not found and we haven't retried too many times,
+          // wait a bit and retry (in case of race condition with registration)
+          if (retryCount < 3) {
+            setRetryCount(prev => prev + 1);
+            setTimeout(() => {
+              fetchUserData();
+            }, 1000 * (retryCount + 1)); // Exponential backoff
+            return;
+          }
+          throw new Error('Profile not found. Please try logging out and back in.');
+        }
+        throw new Error(`Failed to fetch profile (${response.status}): ${errorData}`);
       }
       
       const data = await response.json();
+      console.log('Profile data received:', {
+        id: data.id,
+        name: data.name,
+        role: data.role
+      });
+      
       setUserData(data);
       setEditForm({
         name: data.name || '',
@@ -73,9 +102,11 @@ export default function ProfilePage() {
         bio: data.bio || '',
         location: data.location || ''
       });
+      setRetryCount(0); // Reset retry count on success
     } catch (error) {
       console.error('Error fetching user data:', error);
-      toast.error('Failed to load profile data');
+      setError(error instanceof Error ? error.message : 'Failed to load profile data');
+      toast.error(error instanceof Error ? error.message : 'Failed to load profile data');
     } finally {
       setLoading(false);
     }
@@ -144,6 +175,26 @@ export default function ProfilePage() {
         <Navbar />
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-white">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-900">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-red-400 text-center">
+            <p className="text-lg font-semibold mb-2">Error loading profile</p>
+            <p className="mb-4">{error}</p>
+            <Button 
+              onClick={fetchUserData}
+              className="bg-pink-500 hover:bg-pink-600"
+            >
+              Retry
+            </Button>
+          </div>
         </div>
       </div>
     );

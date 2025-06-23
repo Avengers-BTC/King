@@ -77,6 +77,7 @@ export default function DJDashboard() {
       if (!response.ok) {
         if (response.status === 404) {
           // User doesn't have a DJ profile yet
+          toast.error('DJ profile not found');
           router.push('/signup/dj');
           return;
         }
@@ -84,6 +85,12 @@ export default function DJDashboard() {
       }
 
       const data = await response.json();
+      if (!data) {
+        toast.error('DJ profile not found');
+        router.push('/signup/dj');
+        return;
+      }
+
       setDjProfile(data);
     } catch (error) {
       console.error('Error fetching DJ profile:', error);

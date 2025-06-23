@@ -32,21 +32,38 @@ export async function registerUser(data: UserInput) {
       throw new Error("User with this email already exists");
     }
 
+    // Check if username is taken (if provided)
+    if (validatedData.username) {
+      const existingUsername = await prisma.user.findUnique({
+        where: { username: validatedData.username },
+      });
+
+      if (existingUsername) {
+        throw new Error("Username is already taken");
+      }
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(validatedData.password, 12);
 
-    // Create user
+    // Create user with all required fields properly initialized
     const user = await prisma.user.create({
       data: {
         name: validatedData.name,
         email: validatedData.email,
         password: hashedPassword,
-        username: validatedData.username,
+        username: validatedData.username || `user_${Date.now()}`, // Generate a default username if not provided
         location: validatedData.location,
+        bio: "", // Initialize with empty string
+        followers: 0,
+        following: 0,
+        role: "USER", // Default role
+        joinDate: new Date(), // Explicit join date
+        image: null, // No initial profile image
       },
     });
 
-    // Remove password from returned user object
+    // Remove sensitive data from returned user object
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword;
   } catch (error) {
@@ -69,4 +86,4 @@ export async function updateUserRole(userId: string, role: "USER" | "DJ" | "CLUB
   } catch (error) {
     throw new Error("Failed to update user role");
   }
-} 
+}

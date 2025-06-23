@@ -31,7 +31,8 @@ import {
   Smile,
   SendHorizonal,
   ChevronDown,
-  MoveRight
+  MoveRight,
+  Music
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
@@ -56,6 +57,7 @@ export function Chat({ roomId, className }: ChatProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const { data: session } = useSession();
+
   // Calculate connection state
   const isFullyConnected = socket?.connected && chatConnected && roomConnected;
 
@@ -75,7 +77,7 @@ export function Chat({ roomId, className }: ChatProps) {
         toast.error("Chat disconnected. Attempting to reconnect...");
       }
     }
-  }, [socket?.connected, chatConnected, roomConnected, roomId, isFullyConnected]);// Monitor socket and room connection state
+  }, [socket?.connected, chatConnected, roomConnected, roomId, isFullyConnected]);
   useEffect(() => {
     if (!socket || !chatConnected) {
       console.log(`[Chat] Room ${roomId}: Not connected`);
@@ -114,7 +116,7 @@ export function Chat({ roomId, className }: ChatProps) {
       socket.off('room_joined', handleRoomJoined);
       socket.off('error', handleError);
     };
-  }, [socket, chatConnected, roomId, session?.user?.role]);
+  }, [socket, chatConnected, roomId, session?.user?.role, toast]);
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
@@ -341,81 +343,53 @@ export function Chat({ roomId, className }: ChatProps) {
       </div>
     );
   };
+
   return (
-    <Card className={cn('flex flex-col shadow-lg overflow-hidden border-primary/10', className)}>
-      {/* Connection status */}
-      <div className="flex items-center justify-between px-4 py-2 bg-primary/5">
-        <div className="flex items-center gap-2">
-          <div className={cn(
-            "w-2 h-2 rounded-full",
-            isFullyConnected ? "bg-green-500" : "bg-red-500"
-          )} />
-          <span className="text-sm font-medium">
-            {isFullyConnected ? "Connected" : "Disconnected"}
-          </span>
-        </div>
-        
-        {userCount > 0 && (
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-8 px-2 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                >
-                  <UsersRound className="w-4 h-4" />
-                  <span>{userCount === 1 ? 'Just you' : `${userCount}`}</span>
-                  <ChevronDown className="w-3 h-3 opacity-70" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="p-2">
-                <div className="p-2 text-sm font-medium border-b mb-1">Online Users</div>
-                <div className="max-h-48 overflow-y-auto">
-                  {onlineUsers.length === 0 ? (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No one is online</div>
-                  ) : (
-                    onlineUsers.map(user => (
-                      <div key={user.id} className="px-3 py-2 flex items-center gap-2 hover:bg-accent rounded-md">
-                        <div className="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full items-center justify-center bg-primary/10">
-                          <User className="h-4 w-4 text-primary" />
-                          <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 ring-1 ring-background"></div>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium leading-none">{user.name}</span>
-                          <span className="text-xs text-muted-foreground mt-1">
-                            {user.role === 'DJ' ? 'DJ' : 'Listener'}
-                          </span>
-                        </div>
-                        {user.role === 'DJ' && (
-                          <Badge variant="secondary" className="ml-auto text-xs">DJ</Badge>
-                        )}
-                      </div>
-                    ))
+    <Card className={cn("flex flex-col h-full rounded-none md:rounded-xl", className)}>
+      <div className="flex items-center gap-2 p-4 border-b">
+        <GlowAnimation
+          size="md"
+          className={cn(
+            "bg-red-500",
+            isFullyConnected && "bg-green-500"
+          )}
+        />
+        <h3 className="text-lg font-semibold">
+          Live Chat
+        </h3>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="ml-auto flex items-center gap-1 h-8 px-2 hover:bg-background/50"
+            >
+              <Users className="h-4 w-4" />
+              <span>{onlineUsers.length}</span>
+              <ChevronDown className="h-3 w-3 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <div className="space-y-1 p-1">
+              {onlineUsers.map(user => (
+                <div key={user.id} className="flex items-center p-2 text-sm rounded-md">
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      {user.role === 'DJ' && (
+                        <Music className="h-2.5 w-2.5 text-primary absolute -bottom-0.5 -right-0.5" />
+                      )}
+                    </div>
+                    <span>{user.name}</span>
+                  </div>
+                  {user.role === 'DJ' && (
+                    <Badge variant="secondary" className="ml-auto text-xs">DJ</Badge>
                   )}
                 </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
-            {/* Reset count button for DJs */}
-            {isDJ && userCount > 1 && (
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="h-6 w-6 hover:bg-accent/50"
-                disabled={isResetting}
-                onClick={() => {
-                  setIsResetting(true);
-                  toast.info("Resetting room count...");
-                  resetRoomCount();
-                  setTimeout(() => setIsResetting(false), 2000);
-                }}
-                title="Reset user count if it seems incorrect"
-              >                <RefreshCw className={cn("h-3 w-3", isResetting && "animate-spin")} />
-              </Button>
-            )}
-          </div>
-        )}
+              ))}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <ScrollArea ref={scrollRef} className="flex-1 p-4">
@@ -521,7 +495,9 @@ export function Chat({ roomId, className }: ChatProps) {
             </div>
           )}
         </div>
-      </ScrollArea>      <form onSubmit={handleSendMessage} className="p-4 border-t bg-background/50">
+      </ScrollArea>
+
+      <form onSubmit={handleSendMessage} className="p-4 border-t bg-background/50">
         <div className="flex gap-2">
           <div className="flex-1 relative">
             <div className="flex gap-2">
@@ -570,7 +546,8 @@ export function Chat({ roomId, className }: ChatProps) {
                   <SendHorizonal className="h-5 w-5" />
                 )}
               </Button>
-            </div>            {showEmojiPicker && (
+            </div>
+            {showEmojiPicker && (
               <div 
                 className="absolute bottom-full mb-2 z-50 right-0 sm:right-auto"
                 ref={emojiPickerRef}
@@ -589,35 +566,6 @@ export function Chat({ roomId, className }: ChatProps) {
                 </div>
               </div>
             )}
-            <div className="text-xs text-muted-foreground mt-2 flex flex-wrap gap-x-3 gap-y-1">
-              <span className="font-mono">**bold**</span>
-              <span className="font-mono">*italic*</span>
-              <span className="font-mono">`code`</span>
-              <span className="font-mono">[text](url)</span>
-              
-              {typingUsers.length > 0 && (
-                <span className="ml-auto animate-pulse flex items-center">
-                  <div className="flex items-center space-x-1 mr-1">
-                    <div className="w-1 h-1 rounded-full bg-primary animate-ping"></div>
-                    <div className="w-1 h-1 rounded-full bg-primary animate-ping" style={{ animationDelay: '0.2s' }}></div>
-                    <div className="w-1 h-1 rounded-full bg-primary animate-ping" style={{ animationDelay: '0.4s' }}></div>
-                  </div>
-                  {typingUsers
-                    .filter(user => user.id !== session?.user?.id)
-                    .map(user => user.name)
-                    .join(', ')}
-                  {' '}
-                  typing...
-                </span>
-              )}
-              
-              {userCount > 1 && !typingUsers.length && (
-                <span className="ml-auto text-muted-foreground/60 flex items-center">
-                  <UsersRound className="h-3 w-3 mr-1" />
-                  {userCount}
-                </span>
-              )}
-            </div>
           </div>
         </div>
       </form>

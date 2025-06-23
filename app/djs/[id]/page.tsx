@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Star, Users, MapPin, Music, Instagram, Twitter, Facebook, Heart } from 'lucide-react';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
@@ -10,6 +10,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { FanChat } from '@/components/fan-chat';
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/use-auth';
+import Link from 'next/link';
 
 // Type definition for DJ data
 interface DJ {
@@ -41,11 +43,15 @@ interface DJ {
 }
 
 export default function DJProfilePage() {
+  const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
   const params = useParams();
   const djId = params?.id as string;
   const [dj, setDj] = useState<DJ | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [userRating, setUserRating] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadDj() {
@@ -59,6 +65,24 @@ export default function DJProfilePage() {
         
         const data = await response.json();
         setDj(data);
+
+        // If user is authenticated, fetch their rating and follow status
+        if (isAuthenticated && user) {
+          const [ratingRes, followRes] = await Promise.all([
+            fetch(`/api/djs/${djId}/rating`),
+            fetch(`/api/djs/${djId}/following`)
+          ]);
+          
+          if (ratingRes.ok) {
+            const { rating } = await ratingRes.json();
+            setUserRating(rating);
+          }
+          
+          if (followRes.ok) {
+            const { following } = await followRes.json();
+            setIsFollowing(following);
+          }
+        }
       } catch (error) {
         console.error('Error loading DJ:', error);
         setError('Could not load DJ profile. Please try again later.');
@@ -70,7 +94,68 @@ export default function DJProfilePage() {
     if (djId) {
       loadDj();
     }
-  }, [djId]);
+  }, [djId, isAuthenticated, user]);
+
+  const handleFollow = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to follow this DJ', {
+        action: {
+          label: 'Sign In',
+          onClick: () => router.push('/login')
+        }
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/djs/${djId}/follow`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to follow DJ');
+      }
+
+      setIsFollowing(!isFollowing);
+      toast.success(isFollowing ? 'Unfollowed DJ' : 'Now following DJ');
+    } catch (error) {
+      toast.error('Failed to update follow status');
+    }
+  };
+
+  const handleRate = async (rating: number) => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to rate this DJ', {
+        action: {
+          label: 'Sign In',
+          onClick: () => router.push('/login')
+        }
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/djs/${djId}/rate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ rating })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to rate DJ');
+      }
+
+      setUserRating(rating);
+      toast.success('Rating updated successfully');
+    } catch (error) {
+      toast.error('Failed to update rating');
+    }
+  };
 
   if (loading) {
     return (
@@ -89,232 +174,164 @@ export default function DJProfilePage() {
       <div className="min-h-screen bg-dark-bg">
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-          <h1 className="text-2xl font-bold text-dark-text">DJ Not Found</h1>
-          <p className="text-dark-text/70 mt-2">
-            {error || "The DJ profile you're looking for doesn't exist."}
-          </p>
+          <h1 className="text-2xl font-bold text-dark-text">
+            {error || 'Could not load DJ profile'}
+          </h1>
         </div>
         <Footer />
       </div>
     );
   }
 
-  const handleRank = () => {
-    toast.success('Thanks for your rating! 🔥');
-  };
-
-  const handleFollow = () => {
-    toast.success('You are now following this DJ! 💫');
-  };
-
-  // Format upcoming events from the events array
-  const upcoming = dj.events?.map(event => ({
-    event: event.name,
-    venue: event.club.name,
-    date: new Date(event.date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  })) || [];
-
-  // Format socials object
-  const socials = {
-    instagram: dj.instagram,
-    twitter: dj.twitter,
-    facebook: dj.facebook
-  };
-
   return (
     <div className="min-h-screen bg-dark-bg">
       <Navbar />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Hero Section */}
-        <div className="glass-card p-8 mb-8">
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* DJ Image */}
-            <div className="flex-shrink-0">
-              <div className="w-64 h-64 mx-auto lg:mx-0 rounded-xl overflow-hidden border-2 border-electric-pink/30">
-                <img 
-                  src={dj.user.image || '/images/default-avatar.png'} 
-                  alt={dj.user.name || 'DJ'}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-            
-            {/* DJ Info */}
-            <div className="flex-1">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h1 className="text-4xl font-bold text-dark-text mb-2">{dj.user.name}</h1>
-                  <p className="text-xl text-electric-pink mb-2">{dj.genres.join(' / ')}</p>
-                  <div className="flex items-center space-x-4 text-dark-text/70">
-                    <div className="flex items-center space-x-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>{dj.user.location || 'Unknown location'}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Users className="h-4 w-4" />
-                      <span>{dj.fans?.toLocaleString() || 0} fans</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span>{dj.rating || 0}</span>
-                    </div>
-                  </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <Card>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Profile Image and Basic Info */}
+              <div className="space-y-6">
+                <div className="relative h-64 w-64 mx-auto md:mx-0">
+                  <img
+                    src={dj.user.image || '/default-dj.png'}
+                    alt={`${dj.user.name}'s profile`}
+                    className="rounded-full object-cover w-full h-full"
+                  />
+                </div>
+                <div className="text-center md:text-left">
+                  <h1 className="text-3xl font-bold">{dj.user.name}</h1>
+                  <p className="text-gray-500 flex items-center justify-center md:justify-start mt-2">
+                    <MapPin className="w-4 h-4 mr-2" />
+                    {dj.user.location || 'Location not specified'}
+                  </p>
                 </div>
               </div>
-              
-              <p className="text-dark-text/80 mb-6 leading-relaxed">
-                {dj.bio}
-              </p>
-              
-              {dj.currentClub && (
-                <div className="mb-6 p-4 bg-electric-pink/10 rounded-lg border border-electric-pink/30">
-                  <div className="flex items-center space-x-2">
-                    <Music className="h-5 w-5 text-electric-pink" />
-                    <span className="text-dark-text">
-                      Currently playing at <span className="text-electric-pink font-semibold">{dj.currentClub}</span>
-                    </span>
-                  </div>
-                </div>
-              )}
-              
-              <div className="flex flex-wrap gap-4">
-                <GlowButton onClick={handleRank}>
-                  🔥 Rank This DJ
-                </GlowButton>
-                <Button 
-                  variant="outline" 
-                  onClick={handleFollow}
-                  className="border-neon-cyan text-neon-cyan hover:bg-neon-cyan hover:text-dark-bg"
-                >
-                  <Heart className="h-4 w-4 mr-2" />
-                  Follow
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Upcoming Events */}
-            <Card className="glass-card">
-              <CardContent className="p-6">
-                <h2 className="text-2xl font-bold text-dark-text mb-4">Upcoming Events</h2>
-                {upcoming && upcoming.length > 0 ? (
-                  <div className="space-y-4">
-                    {upcoming.map((event, index) => (
-                      <div key={index} className="flex justify-between items-center p-4 bg-dark-bg/50 rounded-lg">
-                        <div>
-                          <h3 className="font-semibold text-dark-text">{event.event}</h3>
-                          <p className="text-sm text-dark-text/70">{event.venue}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-electric-pink">{event.date}</p>
-                        </div>
-                      </div>
+              {/* Stats and Actions */}
+              <div className="space-y-6">
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex items-center">
+                    <Star className="w-5 h-5 text-yellow-500 mr-2" />
+                    <span>{dj.rating.toFixed(1)}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Users className="w-5 h-5 text-blue-500 mr-2" />
+                    <span>{dj.fans} fans</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Music className="w-5 h-5 text-purple-500 mr-2" />
+                    <span>{dj.genres.join(', ')}</span>
+                  </div>
+                </div>
+
+                {/* Interactive Buttons - Only for authenticated users */}
+                <div className="space-y-4">
+                  <GlowButton
+                    onClick={handleFollow}
+                    variant={isFollowing ? "secondary" : "default"}
+                    className="w-full"
+                  >
+                    <Heart className={`w-4 h-4 mr-2 ${isFollowing ? 'fill-current' : ''}`} />
+                    {isFollowing ? 'Following' : 'Follow'}
+                  </GlowButton>
+
+                  {/* Rating Stars */}
+                  <div className="flex items-center space-x-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Button
+                        key={star}
+                        variant="ghost"
+                        onClick={() => handleRate(star)}
+                        className={`p-1 ${
+                          userRating && star <= userRating
+                            ? 'text-yellow-500'
+                            : 'text-gray-400'
+                        }`}
+                      >
+                        <Star className="w-6 h-6" />
+                      </Button>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-dark-text/70">No upcoming events at the moment.</p>
-                )}
-              </CardContent>
-            </Card>
 
-            {/* Fan Comments Placeholder */}
-            <Card className="glass-card">
-              <CardContent className="p-6">
-                <h2 className="text-2xl font-bold text-dark-text mb-4">Fan Comments</h2>
-                <div className="space-y-4">
-                  <div className="p-4 bg-dark-bg/50 rounded-lg">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <div className="w-8 h-8 bg-electric-pink/20 rounded-full"></div>
-                      <span className="font-medium text-dark-text">@music_lover</span>
-                    </div>
-                    <p className="text-dark-text/80">Absolutely incredible set last night! The energy was insane! 🔥</p>
-                  </div>
-                  <div className="p-4 bg-dark-bg/50 rounded-lg">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <div className="w-8 h-8 bg-neon-cyan/20 rounded-full"></div>
-                      <span className="font-medium text-dark-text">@dancefever</span>
-                    </div>
-                    <p className="text-dark-text/80">Amazing performance! Can&apos;t wait for the next show! 💫</p>
+                  {/* Social Links */}
+                  <div className="flex space-x-4">
+                    {dj.instagram && (
+                      <a
+                        href={dj.instagram}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-pink-500 hover:text-pink-600"
+                      >
+                        <Instagram className="w-6 h-6" />
+                      </a>
+                    )}
+                    {dj.twitter && (
+                      <a
+                        href={dj.twitter}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-500"
+                      >
+                        <Twitter className="w-6 h-6" />
+                      </a>
+                    )}
+                    {dj.facebook && (
+                      <a
+                        href={dj.facebook}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        <Facebook className="w-6 h-6" />
+                      </a>
+                    )}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Social Links */}
-            <Card className="glass-card">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-bold text-dark-text mb-4">Connect</h3>
-                {(socials.instagram || socials.twitter || socials.facebook) ? (
-                  <div className="space-y-3">
-                    {socials.instagram && (
-                      <a href={`https://instagram.com/${socials.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-3 text-dark-text/70 hover:text-electric-pink transition-colors">
-                        <Instagram className="h-5 w-5" />
-                        <span>{socials.instagram}</span>
-                      </a>
-                    )}
-                    {socials.twitter && (
-                      <a href={`https://twitter.com/${socials.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-3 text-dark-text/70 hover:text-electric-pink transition-colors">
-                        <Twitter className="h-5 w-5" />
-                        <span>{socials.twitter}</span>
-                      </a>
-                    )}
-                    {socials.facebook && (
-                      <a href={`https://facebook.com/${socials.facebook}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-3 text-dark-text/70 hover:text-electric-pink transition-colors">
-                        <Facebook className="h-5 w-5" />
-                        <span>{socials.facebook}</span>
-                      </a>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-dark-text/70">No social links available.</p>
-                )}
-              </CardContent>
-            </Card>
+            {/* Bio */}
+            <div className="mt-8">
+              <h2 className="text-xl font-semibold mb-4">About</h2>
+              <p className="text-gray-600">{dj.bio}</p>
+            </div>
 
-            {/* Stats */}
-            <Card className="glass-card">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-bold text-dark-text mb-4">Stats</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-dark-text/70">Total Fans</span>
-                    <span className="text-electric-pink font-semibold">{dj.fans?.toLocaleString() || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-dark-text/70">Rating</span>
-                    <span className="text-electric-pink font-semibold">{dj.rating || 0}/5</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-dark-text/70">Rank</span>
-                    <span className="text-electric-pink font-semibold">#3</span>
-                  </div>
+            {/* Upcoming Events */}
+            {dj.events && dj.events.length > 0 && (
+              <div className="mt-8">
+                <h2 className="text-xl font-semibold mb-4">Upcoming Events</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {dj.events.map((event) => (
+                    <Card key={event.id}>
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold">{event.name}</h3>
+                        <p className="text-gray-500">
+                          {new Date(event.date).toLocaleDateString()}
+                        </p>
+                        <p className="text-gray-600">
+                          {event.club.name}, {event.club.location}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
+              </div>
+            )}
 
-      {/* Fan Chat Section */}
-      <div className="mt-8">
-        <FanChat
-          djId={dj.userId}
-          djName={dj.user.name || 'DJ'}
-        />
+            {/* Fan Chat - Only for authenticated users */}
+            {isAuthenticated && dj && (
+              <div className="mt-8">
+                <h2 className="text-xl font-semibold mb-4">Fan Chat</h2>
+                <FanChat 
+                  djId={dj.id} 
+                  djName={dj.user.name || 'DJ'} 
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-
       <Footer />
     </div>
   );

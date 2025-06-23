@@ -8,6 +8,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log(`[GET /api/users/${params.id}] Fetching user profile`);
+    
     const user = await prisma.user.findUnique({
       where: { id: params.id },
       include: {
@@ -57,15 +59,27 @@ export async function GET(
     });
     
     if (!user) {
+      console.error(`[GET /api/users/${params.id}] User not found in database`);
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
 
+    console.log(`[GET /api/users/${params.id}] User found:`, {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      hasProfile: !!user
+    });
+
     return NextResponse.json(user);
   } catch (error) {
-    console.error('Error fetching user:', error);
+    console.error('[GET /api/users/[id]] Error fetching user:', {
+      userId: params.id,
+      error: error instanceof Error ? error.message : error
+    });
     return NextResponse.json(
       { error: 'Failed to fetch user' },
       { status: 500 }
@@ -160,4 +174,4 @@ export async function PUT(
       { status: 500 }
     );
   }
-} 
+}

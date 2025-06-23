@@ -4,10 +4,14 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { UserInput } from "@/lib/actions/auth";
 
+// Create a custom hook that follows React hook rules
 export function useAuth() {
-  const { data: session, status, update } = useSession();
+  // All hooks must be called at the top level
+  const { data: sessionData, status, update } = useSession();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);  const login = async (email: string, password: string) => {
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
       console.log("[useAuth] Attempting login for:", email);
@@ -24,31 +28,16 @@ export function useAuth() {
         toast.error(result.error);
         return false;
       }
-      
-      // After successful login, update session to get the latest user data
-      console.log("[useAuth] Login successful, updating session");
-      await update();
-      
-      toast.success("Welcome back!");
-      
-      // Force navigation based on user role
-      if (session?.user?.role === "DJ") {
-        console.log("[useAuth] Redirecting to DJ dashboard");
-        if (typeof window !== 'undefined') {
-          window.location.href = "/dj/dashboard";
-        } else {
-          router.push("/dj/dashboard");
-        }
-      } else {
-        console.log("[useAuth] Redirecting to user dashboard");
-        if (typeof window !== 'undefined') {
-          window.location.href = "/dashboard";
-        } else {
-          router.push("/dashboard");
-        }
+
+      if (result?.ok) {
+        toast.success("Welcome back!");
+        // Let NextAuth handle the redirect naturally
+        return true;
       }
-      return true;
+      
+      return false;
     } catch (error) {
+      console.error("[useAuth] Error during login:", error);
       toast.error("An error occurred during login");
       return false;
     } finally {
@@ -109,13 +98,13 @@ export function useAuth() {
       setIsLoading(false);
     }
   };
-
+  
   return {
-    session,
+    session: sessionData,
     status,
     isLoading,
     isAuthenticated: status === "authenticated",
-    user: session?.user,
+    user: sessionData?.user,
     login,
     register,
     logout,

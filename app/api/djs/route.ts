@@ -1,17 +1,13 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/app/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
-  try {
-    // Test database connection first
-    await prisma.$connect();
-    
+export async function GET(request: Request) {  try {
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit');
     
-    const djs = await prisma.dJ.findMany({
+    const djs = await prisma.dj.findMany({
       take: limit ? parseInt(limit) : undefined,
       include: {
         user: {
@@ -47,20 +43,15 @@ export async function GET(request: Request) {
       }
     });
 
-    return NextResponse.json(djs);
-  } catch (error) {
-    console.error('Error fetching DJs:', error);
-    
-    // Return empty array instead of error object to prevent frontend map() errors
+    return NextResponse.json(djs);  } catch (error) {
     return NextResponse.json([], { status: 200 });
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    
     const { 
       userId, 
       djName, 
@@ -72,15 +63,7 @@ export async function POST(request: Request) {
       currentClub 
     } = body;
 
-    console.log('DJ Profile creation request:', { userId, genre, bio, djName });
-
     if (!userId || !genre || !bio || !djName) {
-      console.log('Missing required fields:', { 
-        userId: !!userId, 
-        genre: !!genre,
-        bio: !!bio,
-        djName: !!djName 
-      });
       return NextResponse.json(
         { error: 'Missing required fields: userId, genre, djName, and bio are required' },
         { status: 400 }
@@ -91,7 +74,7 @@ export async function POST(request: Request) {
     const genres = Array.isArray(genre) ? genre : [genre];
 
     // Check if user already has a DJ profile
-    const existingDJ = await prisma.dJ.findUnique({
+    const existingDJ = await prisma.dj.findUnique({
       where: { userId }
     });
 
@@ -103,48 +86,87 @@ export async function POST(request: Request) {
     }
 
     // Start a transaction to create DJ profile and update user
-    const result = await prisma.$transaction(async (tx) => {
-      // Update user role to DJ and set display name
-      await tx.user.update({
-        where: { id: userId },
-        data: { 
-          role: 'DJ',
-          name: djName
-        }
-      });
-
-      // Create DJ profile
-      const dj = await tx.dJ.create({
-        data: {
-          userId,
-          genres,
-          bio,
-          status: 'OFFLINE',
-          currentClub: currentClub || null,
-          instagram: instagram || null,
-          twitter: twitter || null,
-          facebook: facebook || null
-        },
-        include: {
-          user: {
-            select: {
-              name: true,
-              email: true,
-              username: true,
-              location: true,
-              image: true
+    type UserRole = 'USER' | 'DJ' | 'CLUB_OWNER' | 'ADMIN';    interface UpdatedUser {
+      id: string;
+      name: string | null;
+      email: string | null;
+      username: string | null;
+      location: string | null;
+      image: string | null;
+      role: UserRole;
+    }type DJStatus = 'OFFLINE' | 'PERFORMING' | 'SCHEDULED' | 'ON_BREAK';
+    
+    interface DJProfile {
+      id: string;
+      userId: string;
+      genres: string[];
+      bio: string | null;
+      status: DJStatus;
+      currentClub: string | null;
+      instagram: string | null;
+      twitter: string | null;
+      facebook: string | null;
+      user: {
+        name: string | null;
+        email: string | null;
+        username: string | null;
+        location: string | null;
+        image: string | null;
+        role: UserRole;
+      };
+    }interface TransactionResult {
+      dj: DJProfile;
+      user: UpdatedUser;
+    }
+    
+    type TransactionClient = Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
+        
+    const result = await prisma.$transaction(async (tx: TransactionClient): Promise<TransactionResult> => {
+          // Update user role to DJ and set display name
+          const updatedUser = await tx.user.update({
+            where: { id: userId },
+            data: { 
+              role: 'DJ',
+              name: djName
             }
-          }
-        }
-      });
+          });
 
-      return dj;
+          // Create DJ profile
+          const dj = await tx.dj.create({
+            data: {
+              userId,
+              genres,
+              bio,
+              status: 'OFFLINE',
+              currentClub: currentClub || null,
+              instagram: instagram || null,
+              twitter: twitter || null,
+              facebook: facebook || null
+            },
+            include: {
+              user: {
+                select: {
+                  name: true,
+                  email: true,
+                  username: true,
+                  location: true,
+                  image: true,
+                  role: true
+                }
+              }
+            }
+          });
+
+          return { dj, user: updatedUser };
+        });
+
+    return NextResponse.json({
+      success: true,
+      data: result.dj,
+      user: result.user,
+      redirect: '/dj/dashboard'
     });
-
-    return NextResponse.json(result, { status: 201 });
-  } catch (error) {
-    console.error('Error creating DJ profile:', error);
-    return NextResponse.json(
+  } catch (error) {    return NextResponse.json(
       { error: 'Failed to create DJ profile' },
       { status: 500 }
     );

@@ -52,10 +52,36 @@ export default function DashboardPage() {
   const [retryCount, setRetryCount] = useState(0);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [socketHealthStatus, setSocketHealthStatus] = useState<string | null>(null);
+  const [clientPath, setClientPath] = useState<string>('');
+  const [isClient, setIsClient] = useState(false);
   const [authDebug, setAuthDebug] = useState<string>("Initializing");
-
+  
+  // Set client-side state for hydration safety
+  // Set client-side state for hydration safety
+  useEffect(() => {
+    setIsClient(true);
+    setClientPath(window.location.pathname);
+    
+    // Check socket health for debugging
+    const checkSocketHealth = async () => {
+      try {
+        const response = await fetch('/api/socket/health', { 
+          cache: 'no-store' 
+        });
+        const data = await response.json();
+        setSocketHealthStatus(data.status);
+      } catch (error) {
+        console.error("Socket health check failed:", error);
+        setSocketHealthStatus("Error checking status");
+      }
+    };
+    
+    checkSocketHealth();
+  }, []);
   // Add a debug effect to log authentication status
   useEffect(() => {
+    if (!isClient) return;
+    
     console.log("[Dashboard] Auth Status:", status);
     console.log("[Dashboard] Is Authenticated:", isAuthenticated);
     console.log("[Dashboard] User:", user);
@@ -73,18 +99,19 @@ export default function DashboardPage() {
     }
     
     // Force navigation to dashboard if authenticated
-    if (status === "authenticated" && user && typeof window !== 'undefined') {
+    if (status === "authenticated" && user) {
       console.log("[Dashboard] User authenticated, ensuring we're on the dashboard");
-      // Get current path
-      const currentPath = window.location.pathname;
       
       // If we're at login but authenticated, manually push to dashboard
-      if (currentPath === "/login") {
+      if (clientPath === "/login") {
         console.log("[Dashboard] Redirecting from login to dashboard");
-        window.location.href = "/dashboard";
+        // Use setTimeout to avoid hydration issues
+        setTimeout(() => {
+          window.location.href = "/dashboard";
+        }, 100);
       }
     }
-  }, [status, isAuthenticated, user, updateSession]);
+  }, [status, isAuthenticated, user, updateSession, isClient, clientPath]);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -212,6 +239,17 @@ export default function DashboardPage() {
     }
   };
 
+  if (!isClient) {
+    // Return a minimal loading state during SSR to prevent hydration mismatches
+    return (
+      <div className="min-h-screen bg-app-bg flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-pulse">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-app-bg flex items-center justify-center">
@@ -219,7 +257,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-app-text mb-4">Please log in to access your dashboard</h1>
           <div className="mb-6 p-4 bg-app-surface rounded text-sm text-app-text-muted">
             <p>Auth Debug: {authDebug}</p>
-            <p className="mt-2">Current path: {typeof window !== 'undefined' ? window.location.pathname : 'N/A'}</p>
+            <p className="mt-2">Current path: {clientPath}</p>
             <p className="mt-2">If you were just logged in, you may be experiencing a session recognition issue.</p>
           </div>
           <div className="flex flex-col space-y-4 items-center">
