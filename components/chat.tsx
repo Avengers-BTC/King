@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { GlowAnimation } from '@/components/ui/glow-animation';
 import { GlowMessage } from '@/components/ui/glow-message';
+import { UserAvatar } from '@/components/ui/user-avatar';
+import { TypingIndicator } from '@/components/ui/typing-indicator';
+import { MessageStatus } from '@/components/ui/message-status';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -153,11 +156,15 @@ export function Chat({ roomId, className }: ChatProps) {
   }, [showEmojiPicker]);
 
   const handleTyping = () => {
-    if (!socket) return;
+    if (!socket || !session?.user) return;
 
     if (!isTyping) {
       setIsTyping(true);
-      socket.emit('typing_start', roomId);
+      socket.emit('typing_start', {
+        roomId,
+        userName: session.user.name,
+        userRole: session.user.role
+      });
     }
 
     // Clear existing timeout
@@ -346,50 +353,103 @@ export function Chat({ roomId, className }: ChatProps) {
 
   return (
     <Card className={cn("flex flex-col h-full rounded-none md:rounded-xl", className)}>
-      <div className="flex items-center gap-2 p-4 border-b">
-        <GlowAnimation
-          size="md"
-          className={cn(
-            "bg-red-500",
-            isFullyConnected && "bg-green-500"
+      <div className="flex items-center gap-3 p-4 border-b bg-background/50 backdrop-blur-sm">
+        <div className="relative">
+          <GlowAnimation
+            size="md"
+            className={cn(
+              "bg-red-500",
+              isFullyConnected && "bg-green-500"
+            )}
+          />
+          {isFullyConnected && (
+            <div className="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-ping opacity-75" />
           )}
-        />
-        <h3 className="text-lg font-semibold">
-          Live Chat
-        </h3>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
+        </div>
+        
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold">Live Chat</h3>
+          <div className="flex items-center gap-2 mt-1">
+            <Badge variant="outline" className="text-xs animate-fade-in">
+              <Users className="h-3 w-3 mr-1" />
+              {userCount} online
+            </Badge>
+            {typingUsers.length > 0 && (
+              <Badge variant="secondary" className="text-xs animate-pulse">
+                <div className="w-2 h-2 rounded-full bg-primary mr-1 animate-ping" />
+                {typingUsers.length} typing
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {isDJ && (
+            <Button
+              variant="ghost"
               size="sm"
-              className="ml-auto flex items-center gap-1 h-8 px-2 hover:bg-background/50"
+              className="h-8 w-8 p-0"
+              onClick={() => {
+                setIsResetting(true);
+                resetRoomCount();
+                setTimeout(() => setIsResetting(false), 1000);
+              }}
+              disabled={isResetting}
             >
-              <Users className="h-4 w-4" />
-              <span>{onlineUsers.length}</span>
-              <ChevronDown className="h-3 w-3 opacity-50" />
+              <RefreshCw className={cn("h-4 w-4", isResetting && "animate-spin")} />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <div className="space-y-1 p-1">
-              {onlineUsers.map(user => (
-                <div key={user.id} className="flex items-center p-2 text-sm rounded-md">
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      {user.role === 'DJ' && (
-                        <Music className="h-2.5 w-2.5 text-primary absolute -bottom-0.5 -right-0.5" />
-                      )}
+          )}
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="flex items-center gap-1 h-8 px-2 hover:bg-background/50"
+              >
+                <Users className="h-4 w-4" />
+                <span>{onlineUsers.length}</span>
+                <ChevronDown className="h-3 w-3 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <div className="p-3">
+                <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Online Users ({onlineUsers.length})
+                </h4>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {onlineUsers.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between py-2 px-2 rounded-md hover:bg-accent/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <UserAvatar 
+                          user={user} 
+                          size="sm" 
+                          showRole={true}
+                        />
+                        <div>
+                          <span className="text-sm font-medium">{user.name}</span>
+                          {user.role === 'DJ' && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Music className="h-3 w-3 text-blue-500" />
+                              <span className="text-xs text-muted-foreground">DJ</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="w-2 h-2 rounded-full bg-green-500" />
                     </div>
-                    <span>{user.name}</span>
-                  </div>
-                  {user.role === 'DJ' && (
-                    <Badge variant="secondary" className="ml-auto text-xs">DJ</Badge>
+                  ))}
+                  {onlineUsers.length === 0 && (
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      No other users online
+                    </div>
                   )}
                 </div>
-              ))}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <ScrollArea ref={scrollRef} className="flex-1 p-4">
@@ -402,98 +462,112 @@ export function Chat({ roomId, className }: ChatProps) {
               <div
                 key={msg.id}
                 className={cn(
-                  'max-w-[85%]',
-                  isSender ? 'ml-auto' : ''
+                  'flex gap-3 max-w-[85%]',
+                  isSender ? 'ml-auto flex-row-reverse' : ''
                 )}
               >
-                <GlowMessage 
-                  isSender={isSender} 
-                  animate={isNew}
-                  className="group"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "font-medium text-sm",
-                        isSender ? "text-primary-foreground/90" : ""
-                      )}>
-                        {msg.sender.name}
-                      </span>
-                      {msg.sender.role === 'DJ' && (
-                        <Badge variant={isSender ? "outline" : "secondary"} className="text-xs">DJ</Badge>
-                      )}
-                      {mutedUsers.has(msg.sender.id) && (
-                        <Badge variant="destructive" className="text-xs">Muted</Badge>
-                      )}
+                {!isSender && (
+                  <UserAvatar 
+                    user={msg.sender} 
+                    size="sm" 
+                    showRole={true}
+                    className="mt-1"
+                  />
+                )}
+                
+                <div className={cn('flex-1', isSender ? 'text-right' : '')}>
+                  <GlowMessage 
+                    isSender={isSender} 
+                    animate={isNew}
+                    className="group"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "font-medium text-sm",
+                          isSender ? "text-primary-foreground/90" : ""
+                        )}>
+                          {msg.sender.name}
+                        </span>
+                        {msg.sender.role === 'DJ' && (
+                          <Badge variant={isSender ? "outline" : "secondary"} className="text-xs">DJ</Badge>
+                        )}
+                        {mutedUsers.has(msg.sender.id) && (
+                          <Badge variant="destructive" className="text-xs">Muted</Badge>
+                        )}
+                      </div>
+                      {renderMessageActions(msg)}
                     </div>
-                    {renderMessageActions(msg)}
-                  </div>
-                  
-                  {/* Render formatted message here */}
-                  {renderFormattedMessage(msg)}
+                    
+                    {/* Render formatted message here */}
+                    {renderFormattedMessage(msg)}
 
-                  <div className="flex items-center mt-1">
-                    {/* Reactions dropdown */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className={cn(
-                            "h-6 w-6 p-0 opacity-50 hover:opacity-100",
-                            isSender ? "text-primary-foreground/80" : ""
-                          )}
-                        >
-                          <Smile className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        <div className="flex flex-wrap p-2 gap-2">
-                          {reactionEmojis.map(emoji => (
-                            <Button
-                              key={emoji}
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => addReaction(msg.id, emoji)}
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-1">
+                        {/* Reactions dropdown */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className={cn(
+                                "h-6 w-6 p-0 opacity-50 hover:opacity-100",
+                                isSender ? "text-primary-foreground/80" : ""
+                              )}
                             >
-                              {emoji}
+                              <Smile className="h-4 w-4" />
                             </Button>
-                          ))}
-                        </div>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <div className="flex flex-wrap p-2 gap-2">
+                              {reactionEmojis.map(emoji => (
+                                <Button
+                                  key={emoji}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => addReaction(msg.id, emoji)}
+                                >
+                                  {emoji}
+                                </Button>
+                              ))}
+                            </div>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
 
-                  {/* Render message reactions */}
-                  {renderReactions(msg)}
+                      {/* Message status and timestamp */}
+                      <MessageStatus 
+                        status={msg.id.startsWith('temp-') ? 'sending' : 'delivered'} 
+                        timestamp={msg.timestamp}
+                        className={cn(
+                          isSender ? "text-primary-foreground/60" : "text-muted-foreground"
+                        )}
+                      />
+                    </div>
 
-                  <div className={cn(
-                    "text-xs mt-1",
-                    isSender ? "text-primary-foreground/60" : "opacity-70"
-                  )}>
-                    {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                  </div>
-                </GlowMessage>
+                    {/* Render message reactions */}
+                    {renderReactions(msg)}
+                  </GlowMessage>
+                </div>
+
+                {isSender && (
+                  <UserAvatar 
+                    user={msg.sender} 
+                    size="sm" 
+                    showRole={true}
+                    className="mt-1"
+                  />
+                )}
               </div>
             );
           })}
           
-          {typingUsers.length > 0 && (
-            <div className="text-sm text-muted-foreground animate-pulse flex items-center gap-2">
-              <div className="flex items-center space-x-1">
-                <div className="w-1 h-1 rounded-full bg-primary animate-ping"></div>
-                <div className="w-1 h-1 rounded-full bg-primary animate-ping" style={{ animationDelay: '0.2s' }}></div>
-                <div className="w-1 h-1 rounded-full bg-primary animate-ping" style={{ animationDelay: '0.4s' }}></div>
-              </div>
-              {typingUsers
-                .filter(user => user.id !== session?.user?.id)
-                .map(user => user.name)
-                .join(', ')}
-              {' '}
-              {typingUsers.length === 1 ? 'is' : 'are'} typing...
-            </div>
-          )}
+          {/* Enhanced typing indicator */}
+          <TypingIndicator 
+            users={typingUsers} 
+            currentUserId={session?.user?.id}
+          />
         </div>
       </ScrollArea>
 

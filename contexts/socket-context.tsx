@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useSession } from 'next-auth/react';
 
@@ -19,86 +19,124 @@ export const useSocket = () => useContext(SocketContext);
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [connectionAttempts, setConnectionAttempts] = useState(0);
   const { data: session, status } = useSession();
+  const healthCheckIntervalRef = useRef<ReturnType<typeof setInterval>>();
+  const socketRef = useRef<Socket | null>(null);
+  const connectionAttemptsRef = useRef(0);
+  const maxConnectionAttempts = 3;
 
-  // Effect for socket connection management
-  useEffect(() => {
-    let socketInstance: Socket | null = null;
-    let healthCheckInterval: NodeJS.Timeout | null = null;
+  const cleanup = useCallback(() => {
+    console.log('[Socket.IO] Cleaning up connection...');
+    
+    if (healthCheckIntervalRef.current) {
+      clearInterval(healthCheckIntervalRef.current);
+      healthCheckIntervalRef.current = undefined;
+    }
+    
+    if (socketRef.current) {
+      socketRef.current.removeAllListeners();
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+    
+    setSocket(null);
+    setIsConnected(false);
+    connectionAttemptsRef.current = 0;
+  }, []);
 
-    const setupSocket = () => {
-      if (status !== 'authenticated' || !session?.user?.id) {
-        console.log('[Socket.IO] Not authenticated, skipping connection');
-        return;
+  const startHealthCheck = useCallback((socket: Socket) => {
+    if (healthCheckIntervalRef.current) {
+      clearInterval(healthCheckIntervalRef.current);
+    }
+
+    healthCheckIntervalRef.current = setInterval(() => {
+      if (socket.connected) {
+        socket.emit('heartbeat');
       }
+    }, 25000);
+  }, []);
 
-      console.log('[Socket.IO] Initializing connection with user ID:', session.user.id);
+  useEffect(() => {
+    if (!session?.user?.id || status !== 'authenticated') {
+      console.log('[Socket.IO] Not authenticated, cleaning up');
+      cleanup();
+      return;
+    }
 
-      // Get the base URL for socket connection
-      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 
-                       process.env.NEXT_PUBLIC_SITE_URL || 
-                       (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+    if (socketRef.current?.connected) {
+      console.log('[Socket.IO] Already connected');
+      return;
+    }
 
-      const isProd = process.env.NODE_ENV === 'production';
+    if (connectionAttemptsRef.current >= maxConnectionAttempts) {
+      console.log('[Socket.IO] Max connection attempts reached');
+      cleanup();
+      return;
+    }
 
-      socketInstance = io(socketUrl, {
+    try {
+      console.log('[Socket.IO] Initializing connection...');
+      connectionAttemptsRef.current++;
+
+      // Get base URL
+      const socketUrl = typeof window !== 'undefined' 
+        ? (process.env.NEXT_PUBLIC_APP_URL || window.location.origin) 
+        : 'http://localhost:3000';
+
+      // Create socket instance with polling first
+      const socketInstance = io(socketUrl, {
         path: '/api/socketio',
         addTrailingSlash: false,
         reconnection: true,
         reconnectionAttempts: 3,
         reconnectionDelay: 2000,
+        reconnectionDelayMax: 5000,
         timeout: 20000,
-        withCredentials: true,
         autoConnect: true,
-        transports: isProd ? ['websocket'] : ['polling', 'websocket']
+        transports: ['polling', 'websocket'],
+        auth: {
+          token: session.user.id
+        }
       });
+
+      // Store reference
+      socketRef.current = socketInstance;
 
       // Set up event listeners
       socketInstance.on('connect', () => {
-        console.log('[Socket.IO] Connected:', socketInstance?.id);
+        console.log('[Socket.IO] Connected:', socketInstance.id);
+        setSocket(socketInstance);
         setIsConnected(true);
-        setConnectionAttempts(0);
+        connectionAttemptsRef.current = 0;
+        startHealthCheck(socketInstance);
       });
 
       socketInstance.on('disconnect', (reason) => {
         console.log('[Socket.IO] Disconnected:', reason);
         setIsConnected(false);
-        if (reason === 'io server disconnect') {
-          console.log('[Socket.IO] Server disconnected, may be authentication issue');
-        }
+      });
+
+      socketInstance.on('connect_error', (error) => {
+        console.error('[Socket.IO] Connection error:', error);
+        setIsConnected(false);
       });
 
       socketInstance.on('error', (error) => {
-        console.error('[Socket.IO] Error:', error);
-        setIsConnected(false);
+        console.error('[Socket.IO] Socket error:', error);
       });
 
-      // Set up health checks
-      healthCheckInterval = setInterval(() => {
-        if (socketInstance?.connected) {
-          socketInstance.emit('heartbeat');
-        }
-      }, 30000); // Every 30 seconds
+      socketInstance.on('heartbeat-ack', () => {
+        console.log('[Socket.IO] Heartbeat acknowledged');
+      });
 
-      setSocket(socketInstance);
-    };
-
-    // Initialize socket
-    setupSocket();
-
-    // Cleanup function
-    return () => {
-      if (healthCheckInterval) {
-        clearInterval(healthCheckInterval);
-      }
-      if (socketInstance) {
-        socketInstance.disconnect();
-        setSocket(null);
-        setIsConnected(false);
-      }
-    };
-  }, [status, session]);
+      return () => {
+        cleanup();
+      };
+    } catch (error) {
+      console.error('[Socket.IO] Error initializing socket:', error);
+      cleanup();
+    }
+  }, [session?.user?.id, status, cleanup, startHealthCheck]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSocket } from '@/contexts/socket-context';
 import { useSession } from 'next-auth/react';
+import { ChatSounds } from '@/lib/chat-sounds';
 
 interface MessageFormat {
   bold?: [number, number][];
@@ -34,6 +35,9 @@ export function useChat(roomId: string) {
       return;
     }
 
+    // Initialize chat sounds
+    ChatSounds.init();
+
     const handleConnect = () => {
       console.log(`[Chat] Connecting to room ${roomId}`);
       socket.emit('join_room', roomId);
@@ -58,6 +62,11 @@ export function useChat(roomId: string) {
     });    // Handle messages
     socket.on('new_message', (message: Message) => {
       console.log(`[Chat] Received new message in room ${roomId}:`, message);
+      
+      // Play sound for received messages (not from current user)
+      if (message.sender.id !== session?.user?.id) {
+        ChatSounds.playMessageReceived();
+      }
       
       // Dedupe messages by ID in case we get the same message twice
       setMessages((prev) => {
@@ -196,6 +205,8 @@ export function useChat(roomId: string) {
             setMessages(prev => prev.filter(m => m.id !== newMessage.id));
             reject(error);
           } else {
+            // Play sound for sent message
+            ChatSounds.playMessageSent();
             resolve();
           }
         });      } catch (err) {
