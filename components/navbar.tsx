@@ -63,6 +63,7 @@ export function Navbar() {
   const authLinks = [
     { href: '/profile', label: 'Profile' },
     ...(user?.role === 'DJ' ? [{ href: '/dj/dashboard', label: 'DJ Dashboard' }] : [{ href: '/dashboard', label: 'Dashboard' }]),
+    ...(user?.email === 'ngigibrown@gmail.com' ? [{ href: '/admin', label: 'Admin' }] : []),
   ];
 
   const userInitials = user?.name
