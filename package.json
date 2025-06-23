@@ -13,7 +13,8 @@
     "reset-auth": "ts-node --project prisma/tsconfig.json scripts/auth-testing-setup.ts",
     "postinstall": "prisma generate",
     "debug-prisma": "node scripts/debug-prisma.js",
-    "test-db": "node scripts/test-db-connection.js"
+    "test-db": "node scripts/test-db-connection.js",
+    "test": "echo \"No tests specified yet\" && exit 0"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
