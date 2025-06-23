@@ -4,36 +4,40 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { UserInput } from "@/lib/actions/auth";
 
+// Create a custom hook that follows React hook rules
 export function useAuth() {
-  const { data: session, status, update } = useSession();
+  // All hooks must be called at the top level
+  const { data: sessionData, status, update } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-
+  
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
+      console.log("[useAuth] Attempting login for:", email);
+      
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
 
+      console.log("[useAuth] Login result:", result);
+
       if (result?.error) {
         toast.error(result.error);
         return false;
-      }      // After successful login, update session to get the latest user data
-      await update();
-      
-      toast.success("Welcome back!");
-      
-      // Redirect based on user role
-      if (session?.user?.role === "DJ") {
-        router.push("/dj/dashboard");
-      } else {
-        router.push("/dashboard");
       }
-      return true;
+
+      if (result?.ok) {
+        toast.success("Welcome back!");
+        // Let NextAuth handle the redirect naturally
+        return true;
+      }
+      
+      return false;
     } catch (error) {
+      console.error("[useAuth] Error during login:", error);
       toast.error("An error occurred during login");
       return false;
     } finally {
@@ -94,13 +98,13 @@ export function useAuth() {
       setIsLoading(false);
     }
   };
-
+  
   return {
-    session,
+    session: sessionData,
     status,
     isLoading,
     isAuthenticated: status === "authenticated",
-    user: session?.user,
+    user: sessionData?.user,
     login,
     register,
     logout,

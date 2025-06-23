@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Providers } from '@/components/providers';
 import { Toaster } from '@/components/ui/sonner';
-import { ClearDataComponent } from '@/components/clear-data';
+// Removing ClearDataComponent as it's clearing user sessions on every page load
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -21,7 +21,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>
-          <ClearDataComponent />
+          {/* Removed ClearDataComponent to preserve authentication state */}
           {children}
           <Toaster />
         </Providers>

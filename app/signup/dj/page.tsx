@@ -145,25 +145,37 @@ export default function DJSignupPage() {
         throw new Error(errorData.error || 'Failed to create DJ profile');
       }
 
-      toast.success('DJ account created successfully! Welcome to NightVibe!');
+      const djData = await djResponse.json();
       
-      // Auto login using NextAuth
-      const { signIn } = await import('next-auth/react');
-      const result = await signIn('credentials', {
-        email: formData.email,
-        password: formData.password,
-        redirect: false,
-      });
-
-      if (result?.ok) {
-        router.push('/dj/dashboard');
-      } else {
-        router.push('/login');
+      if (!djData.success) {
+        throw new Error(djData.error || 'Failed to create DJ profile');
       }
 
-    } catch (error) {
-      console.error('Registration error:', error);
-      toast.error(error instanceof Error ? error.message : 'Registration failed');
+      // Sign in with the newly created account
+      const nextAuth = await import('next-auth/react');
+      const signInResult = await nextAuth.signIn('credentials', {
+        email: formData.email,
+        password: formData.password,
+        redirect: false
+      });
+
+      if (signInResult?.error) {
+        throw new Error('Authentication failed after signup');
+      }
+
+      toast.success('DJ profile created successfully!');
+      
+      // Reload the page to ensure session is updated
+      window.location.href = djData.redirect || '/dj/dashboard';
+    } catch (error: any) {
+      // In production, we'll log the error but show a user-friendly message
+      if (process.env.NODE_ENV === 'production') {
+        console.error('[DJ Signup] Error:', error);
+        toast.error('An error occurred during signup. Please try again.');
+      } else {
+        // In development, show the actual error message
+        toast.error(error.message || 'Failed to create DJ profile');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -432,4 +444,4 @@ export default function DJSignupPage() {
       </Card>
     </div>
   );
-} 
+}

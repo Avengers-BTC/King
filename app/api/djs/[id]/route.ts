@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/app/lib/prisma';
-
+import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 export async function GET(
@@ -8,8 +7,21 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const dj = await prisma.dJ.findUnique({
-      where: { userId: params.id },
+    if (!prisma) {
+      return NextResponse.json(
+        { error: 'Database connection error' },
+        { status: 500 }
+      );
+    }
+
+    // Try to find DJ by either DJ ID or user ID
+    const dj = await prisma.dj.findFirst({
+      where: {
+        OR: [
+          { id: params.id },
+          { userId: params.id }
+        ]
+      },
       include: {
         user: {
           select: {
@@ -40,19 +52,22 @@ export async function GET(
         }
       }
     });
-    
+
     if (!dj) {
       return NextResponse.json(
-        { error: 'DJ not found' },
+        { error: 'DJ profile not found' },
         { status: 404 }
       );
     }
 
     return NextResponse.json(dj);
   } catch (error) {
-    console.error('Error fetching DJ:', error);
+    // Log error in production but return generic message
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[DJ API] Error:', error);
+    }
     return NextResponse.json(
-      { error: 'Failed to fetch DJ' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -61,8 +76,15 @@ export async function GET(
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
-) {
-  try {
+) {  try {
+    if (!prisma) {
+      console.error('Prisma client is not initialized');
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
     const { 
       genre, 
@@ -71,8 +93,25 @@ export async function PUT(
       instagram, 
       twitter, 
       facebook 
-    } = body;    const updatedDJ = await prisma.dJ.update({
-      where: { userId: params.id },
+    } = body;
+      const dj = await prisma.dj.findFirst({
+      where: {
+        OR: [
+          { id: params.id },
+          { userId: params.id }
+        ]
+      }
+    });
+
+    if (!dj) {
+      return NextResponse.json(
+        { error: 'DJ not found' },
+        { status: 404 }
+      );
+    }
+
+    const updatedDJ = await prisma.dj.update({
+      where: { id: dj.id },
       data: {
         genres: genre ? (Array.isArray(genre) ? genre : [genre]) : undefined,
         bio: bio || undefined,
@@ -112,12 +151,11 @@ export async function PUT(
       }
     });
 
-    return NextResponse.json(updatedDJ);
-  } catch (error) {
-    console.error('Error updating DJ:', error);
+    return NextResponse.json(updatedDJ);  } catch (error) {
     return NextResponse.json(
       { error: 'Failed to update DJ profile' },
       { status: 500 }
     );
   }
-} 
+}
+

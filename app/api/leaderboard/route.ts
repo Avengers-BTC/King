@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const [topDJs, topClubs] = await Promise.all([
-      prisma.dJ.findMany({
+      prisma.dj.findMany({
         take: 5,
         orderBy: {
           rating: 'desc'
@@ -15,8 +15,7 @@ export async function GET() {
           user: {
             select: {
               name: true,
-              image: true,
-              location: true
+              image: true
             }
           }
         }
@@ -25,38 +24,22 @@ export async function GET() {
         take: 5,
         orderBy: {
           rating: 'desc'
-        },
-        include: {
-          events: {
-            include: {
-              dj: {
-                include: {
-                  user: {
-                    select: {
-                      name: true
-                    }
-                  }
-                }
-              }
-            },
-            orderBy: {
-              date: 'asc'
-            },
-            take: 1
-          }
         }
       })
     ]);
 
     return NextResponse.json({
-      topDJs,
-      topClubs
+      djs: topDJs,
+      clubs: topClubs
     });
   } catch (error) {
-    console.error('Error fetching leaderboard:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch leaderboard' },
-      { status: 500 }
-    );
+    // Log error in production but return empty results
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[Leaderboard] Error:', error);
+    }
+    return NextResponse.json({
+      djs: [],
+      clubs: []
+    });
   }
-} 
+}
