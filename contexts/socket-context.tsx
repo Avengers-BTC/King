@@ -75,10 +75,11 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {      console.log('[Socket.IO] Initializing connection...');
-      connectionAttemptsRef.current++;      // Get Socket.IO server URL from environment or fallback to defaults
-      const socketUrl = typeof window !== 'undefined' 
-        ? (process.env.NEXT_PUBLIC_SOCKET_SERVER || `${window.location.protocol}//${window.location.hostname}:3001`) 
-        : 'http://localhost:3001';
+      connectionAttemptsRef.current++;
+      
+      // Get Socket.IO server URL from environment or fallback to defaults
+      // For testing on localhost, hardcode the URL to ensure proper connection
+      const socketUrl = 'http://localhost:3001';
 
       console.log('[Socket.IO] Connecting to:', socketUrl, 'with timeout:', 30000);
       
@@ -96,7 +97,13 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         transports: ['polling', 'websocket'],
         path: '/socket.io/',  // Use standard Socket.IO path
         auth: {
-          token: session.user.id
+          token: session.user.id,
+          userData: {
+            id: session.user.id,
+            name: session.user.name || 'Anonymous',
+            role: session.user.role || 'USER',
+            image: session.user.image || undefined
+          }
         }
       });
 
@@ -120,15 +127,25 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       });
 
       // Store reference
-      socketRef.current = socketInstance;
-
-      // Set up event listeners
+      socketRef.current = socketInstance;      // Set up event listeners
       socketInstance.on('connect', () => {
         console.log('[Socket.IO] Connected:', socketInstance.id);
         setSocket(socketInstance);
         setIsConnected(true);
         connectionAttemptsRef.current = 0;
         startHealthCheck(socketInstance);
+        
+        // Send user data to server on successful connection
+        if (session?.user) {
+          console.log('[Socket.IO] Sending user data to server');
+          socketInstance.emit('set_user_data', {
+            id: session.user.id,
+            name: session.user.name || 'Anonymous',
+            role: session.user.role || 'USER',
+            email: session.user.email,
+            image: session.user.image
+          });
+        }
       });
 
       socketInstance.on('disconnect', (reason) => {
@@ -147,6 +164,25 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
       socketInstance.on('heartbeat-ack', () => {
         console.log('[Socket.IO] Heartbeat acknowledged');
+      });
+
+      // Handle reconnection events
+      socketInstance.on('reconnect', (attemptNumber) => {
+        console.log(`[Socket.IO] Reconnected after ${attemptNumber} attempts`);
+        setIsConnected(true);
+      });
+      
+      socketInstance.on('reconnect_attempt', (attemptNumber) => {
+        console.log(`[Socket.IO] Reconnection attempt ${attemptNumber}`);
+      });
+      
+      socketInstance.on('reconnect_error', (error) => {
+        console.error('[Socket.IO] Reconnection error:', error);
+      });
+      
+      socketInstance.on('reconnect_failed', () => {
+        console.error('[Socket.IO] Failed to reconnect after all attempts');
+        setIsConnected(false);
       });
 
       return () => {

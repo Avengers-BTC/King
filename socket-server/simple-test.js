@@ -3,9 +3,9 @@ const { io } = require("socket.io-client");
 const http = require('http');
 
 // First, check if the server is running with a simple HTTP request
-console.log(`[Test] Checking if server is running at ${process.argv[2] || 'http://localhost:3001'}...`);
+console.log(`[Test] Checking if server is running at http://localhost:3001...`);
 
-const url = new URL(process.argv[2] || 'http://localhost:3001');
+const url = new URL('http://localhost:3001');
 const httpOptions = {
   hostname: url.hostname,
   port: url.port || 80,
@@ -43,10 +43,11 @@ req.end();
 
 function runSocketTest() {
   // Get the socket server URL from command line argument or use default
-  const serverUrl = process.argv[2] || 'http://localhost:3001';
+  const serverUrl = 'http://localhost:3001';
   console.log(`[Test] Connecting to Socket.IO server at: ${serverUrl}`);
 
-  // Create a test user ID  const testUserId = `test-user-${Date.now()}`;
+  // Create a test user ID
+  const testUserId = `test-user-${Date.now()}`;
 
   // Connect to the Socket.IO server
   const socket = io(serverUrl, {
@@ -88,23 +89,24 @@ function runSocketTest() {
           name: 'Test User',
           role: 'USER'
         }
-      }, (response) => {      console.log('[Test] Message send response:', response);
-    });
-  }, 2000);
-  
-  // Leave the room after sending the message
-  setTimeout(() => {
-    console.log('[Test] Leaving test room');
-    socket.emit('leave_room', testRoomId);
-  }, 4000);
-  
-  // Disconnect after all tests
-  setTimeout(() => {
-    console.log('[Test] Tests completed, disconnecting');
-    socket.disconnect();
-    process.exit(0);
-  }, 6000);
-});
+      }, (response) => {
+        console.log('[Test] Message send response:', response);
+      });
+    }, 2000);
+    
+    // Leave the room after sending the message
+    setTimeout(() => {
+      console.log('[Test] Leaving test room');
+      socket.emit('leave_room', testRoomId);
+    }, 4000);
+    
+    // Disconnect after all tests
+    setTimeout(() => {
+      console.log('[Test] Tests completed, disconnecting');
+      socket.disconnect();
+      process.exit(0);
+    }, 6000);
+  });
 
   // Listen for room events
   socket.on('room_joined', (data) => {
