@@ -26,7 +26,8 @@ const io = new Server(httpServer, {
   transports: ['polling', 'websocket'],
   pingTimeout: 60000,
   pingInterval: 25000,
-  path: '/socket.io/' // Ensure the path is explicitly set
+  path: '/socket.io/', // Ensure the path is explicitly set
+  connectTimeout: 45000
 });
 
 // Store rooms and user data
@@ -37,6 +38,15 @@ const socketUsers = new Map(); // socketId -> userId
 // Set up connection handling
 io.on('connection', (socket) => {
   console.log('[Socket.IO] Client connected:', socket.id);
+  console.log('[Socket.IO] Connection details:', {
+    handshake: {
+      headers: socket.handshake.headers,
+      address: socket.handshake.address,
+      time: socket.handshake.time,
+      auth: socket.handshake.auth ? 'Auth provided' : 'No auth'
+    },
+    transport: socket.conn.transport.name
+  });
 
   // Authenticate socket
   const auth = socket.handshake.auth;
@@ -158,11 +168,15 @@ const PORT = process.env.PORT || 3001;
 console.log('[Socket.IO] Environment:', {
   NODE_ENV: process.env.NODE_ENV,
   PORT: PORT,
-  APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'not set'
+  APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'not set',
+  HOSTNAME: process.env.HOSTNAME || 'not set',
+  RAILWAY_PUBLIC_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN || 'not set',
+  RAILWAY_SERVICE_ID: process.env.RAILWAY_SERVICE_ID || 'not set'
 });
 
 // Start the server
 httpServer.listen(PORT, () => {
   console.log(`[Socket.IO] Server running on port ${PORT}`);
   console.log(`[Socket.IO] Health check available at http://localhost:${PORT}/health`);
+  console.log(`[Socket.IO] Socket.IO server URL: ${process.env.RAILWAY_PUBLIC_DOMAIN || 'localhost'}`);
 });
