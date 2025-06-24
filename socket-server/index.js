@@ -3,50 +3,126 @@ const { Server } = require('socket.io');
 
 console.log('[Socket.IO] Starting standalone server...');
 
+// Track server state
+let isServerReady = false;
+let coldStartTime = Date.now();
+let serverStats = {
+  connections: 0,
+  rooms: 0,
+  uptime: 0,
+  coldStartDuration: 0
+};
+
 // Create a standalone HTTP server
 const httpServer = createServer((req, res) => {
-  // Simple health check endpoint
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ 
-    status: 'OK',
-    message: 'Socket.IO server is running',
-    timestamp: new Date().toISOString()
-  }));
+  // Enhanced health check endpoint
+  const status = {
+    status: isServerReady ? 'ready' : 'starting',
+    message: isServerReady 
+      ? 'Socket.IO server is running' 
+      : 'Socket.IO server is warming up',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    connections: io?.engine?.clientsCount || 0,
+    coldStart: !isServerReady,
+    coldStartTime: Date.now() - coldStartTime,
+    stats: {
+      ...serverStats,
+      currentRooms: rooms?.size || 0,
+      currentConnections: io?.engine?.clientsCount || 0
+    }
+  };
+
+  // Set CORS headers
+  res.writeHead(200, { 
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  });
+  
+  // Handle OPTIONS preflight requests
+  if (req.method === 'OPTIONS') {
+    res.end();
+    return;
+  }
+  
+  res.end(JSON.stringify(status));
 });
 
 // Initialize Socket.IO with the standalone server
 const io = new Server(httpServer, {
   cors: {
-    origin: '*', // Allow all origins for testing
+    origin: process.env.NODE_ENV === 'production' 
+      ? [
+          'https://king-self-two.vercel.app',
+          'https://king-w38u.onrender.com'
+        ]
+      : '*',
     methods: ['GET', 'POST'],
     credentials: true
   },
-  transports: ['polling', 'websocket'],
-  // More aggressive timeouts for free tier
-  pingTimeout: 30000,      // 30s ping timeout (was 60s)
-  pingInterval: 15000,     // 15s ping interval (was 25s)
-  connectTimeout: 20000,   // 20s connect timeout (was 45s)
+  transports: ['websocket', 'polling'],
+  // Aggressive timeouts for free tier
+  pingTimeout: 30000,      // 30s ping timeout
+  pingInterval: 15000,     // 15s ping interval
+  connectTimeout: 20000,   // 20s connect timeout
   // Enable adaptable backoff 
   reconnectionDelay: 1000,    // Start with 1s delay
   reconnectionDelayMax: 10000, // Max 10s delay
-  maxRetries: 5,              // Try 5 times
-  path: '/socket.io/' // Ensure the path is explicitly set
+  maxRetries: 10,             // Increased retries for cold starts
+  path: '/socket.io/'         // Ensure the path is explicitly set
 });
 
-// Track server state
-let isServerReady = false;
-let coldStartTime = Date.now();
-
-// Cold start detection 
-io.use((socket, next) => {
-  // If this is first connection during cold start
-  if (!isServerReady) {
-    const startupTime = Date.now() - coldStartTime;
-    console.log(`[Socket.IO] Cold start completed in ${startupTime}ms`);
-    isServerReady = true;
+// Cold start handling
+io.use(async (socket, next) => {
+  try {
+    // Track connection in stats
+    serverStats.connections++;
+    
+    // If this is first connection during cold start
+    if (!isServerReady) {
+      const startupTime = Date.now() - coldStartTime;
+      console.log(`[Socket.IO] Cold start completed in ${startupTime}ms`);
+      serverStats.coldStartDuration = startupTime;
+      isServerReady = true;
+      
+      // Emit server ready event
+      io.emit('server_ready', { 
+        startupTime,
+        connections: io.engine.clientsCount,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Add connection timestamp
+    socket.connectTime = Date.now();
+    
+    // Check if this is a reconnection
+    const attemptCount = socket.handshake.auth?.attemptCount || 0;
+    if (attemptCount > 0) {
+      console.log(`[Socket.IO] Client reconnection attempt ${attemptCount} for ${socket.id}`);
+    }
+    
+    next();
+  } catch (error) {
+    console.error('[Socket.IO] Error in connection middleware:', error);
+    next(error);
   }
-  next();
 });
+
+// Update server stats periodically
+setInterval(() => {
+  serverStats = {
+    ...serverStats,
+    uptime: process.uptime(),
+    rooms: rooms.size,
+    connections: io.engine.clientsCount
+  };
+}, 5000);
 
 // Set up global error handlers
 process.on('uncaughtException', (error) => {
@@ -430,11 +506,13 @@ function updateOnlineUsers(roomId) {
 }
 
 // Get the port from environment or use 3001 as fallback
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 4000;
 
 // Start the server
-httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Socket.IO] Server running on port ${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`[Socket.IO] Server listening on port ${PORT}`);
+  console.log(`[Socket.IO] Health check: http://localhost:${PORT}`);
+  console.log(`[Socket.IO] Waiting for first connection to complete cold start...`);
 });
 
 // Set up a periodic task to clean up stale connections and update room counts

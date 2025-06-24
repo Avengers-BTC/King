@@ -67,16 +67,22 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const initSocket = useCallback(() => {
     if (!session?.user || status !== 'authenticated') return;
     
-    cleanup();
+    cleanup();    console.log('[Socket.IO] Initializing socket connection...');
+    const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER;
+    console.log('[Socket.IO] Server URL:', socketServerUrl);
+    
+    if (!socketServerUrl) {
+      console.error('[Socket.IO] Missing NEXT_PUBLIC_SOCKET_SERVER environment variable');
+      return;
+    }
 
-    console.log('[Socket.IO] Initializing socket connection...');
-    const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
-      path: '/socket.io/',
-      transports: ['polling', 'websocket'],
-      // Optimized timeouts for free tier
+    const socketInstance = io(socketServerUrl, {      path: '/socket.io/',
+      transports: ['websocket', 'polling'],
+      forceNew: true,
       timeout: 20000,           // 20s connect timeout
       reconnectionDelay: 1000,  // Start with 1s delay
       reconnectionDelayMax: 10000, // Max 10s delay
+      rejectUnauthorized: false,  // Important for SSL/HTTPS connections
       // Retry logic
       reconnectionAttempts: 5,
       autoConnect: false // We'll connect manually after setup
@@ -105,10 +111,10 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     socketInstance.on('disconnect', (reason) => {
       console.log('[Socket.IO] Disconnected:', reason);
       setIsConnected(false);
-    });
-
-    socketInstance.on('connect_error', (error) => {
+    });    socketInstance.on('connect_error', (error) => {
       console.error('[Socket.IO] Connection error:', error.message);
+      console.error('[Socket.IO] Full error:', error);
+      console.log('[Socket.IO] Current server URL:', socketServerUrl);
       
       // Increment attempts and try reconnecting with backoff
       connectionAttemptsRef.current++;
@@ -151,14 +157,26 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     socketInstance.on('reconnect_failed', () => {
       console.error('[Socket.IO] Failed to reconnect after all attempts');
       setIsConnected(false);
-    });
-
-    // Now connect
-    console.log('[Socket.IO] Connecting...');
+    });    // Now connect
+    console.log('[Socket.IO] Connecting to:', socketServerUrl);
     socketInstance.connect();
 
+    // Store socket instance
     socketRef.current = socketInstance;
     setSocket(socketInstance);
+
+    // Add connection timeout
+    const connectionTimeout = setTimeout(() => {
+      if (!socketInstance.connected) {
+        console.error('[Socket.IO] Connection timed out');
+        cleanup();
+      }
+    }, 30000); // 30 second timeout
+
+    // Clear timeout if we connect successfully
+    socketInstance.on('connect', () => {
+      clearTimeout(connectionTimeout);
+    });
 
     return () => cleanup();
   }, [session, status, cleanup]);
