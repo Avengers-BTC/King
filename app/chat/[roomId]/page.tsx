@@ -6,9 +6,8 @@ import { Chat } from '@/components/chat';
 export default function ChatRoomPage() {
   const params = useParams();
   const roomId = params?.roomId;
-
   return (
-    <div className="container mx-auto py-8">
+    <div className="h-[100dvh] w-full overflow-hidden">
       <Chat roomId={roomId as string} />
     </div>
   );

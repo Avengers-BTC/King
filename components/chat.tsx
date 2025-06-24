@@ -105,7 +105,7 @@ interface ChatProps {
   className?: string;
 }
 
-export function Chat({ roomId, className }: ChatProps) {
+export function Chat({ roomId }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const { sendMessage, addReaction, removeReaction, isConnected: chatConnected } = useChat(roomId);
   const { socket } = useSocket();
@@ -528,7 +528,8 @@ export function Chat({ roomId, className }: ChatProps) {
     );
   };
 
-  return (    <Card className="chat-container overflow-hidden flex flex-col h-[100dvh]">
+  return (
+    <div className="chat-wrapper">
       {/* Connection status */}
       {!isFullyConnected && (
         <div className="p-2 bg-yellow-500/10 text-yellow-600 text-sm flex items-center justify-center gap-2">
@@ -538,12 +539,9 @@ export function Chat({ roomId, className }: ChatProps) {
       )}
 
       {/* Chat messages area */}
-      <ScrollArea ref={scrollRef} className="flex-1 p-4">
+      <div className="chat-messages" ref={scrollRef}>
         {messages.map((msg, index) => (
-          <div 
-            key={msg.id ?? index}
-            className="flex flex-col p-2"
-          >
+          <div key={msg.id ?? index} className="flex flex-col">
             {msg.type === 'system' ? (
               <SystemMessage message={msg.message} timestamp={msg.timestamp} />
             ) : (
@@ -560,7 +558,7 @@ export function Chat({ roomId, className }: ChatProps) {
 
                 {/* Message content */}
                 <div className="mt-1">
-                  {renderFormattedMessage(msg)}
+                  {msg.message}
                 </div>
 
                 {/* Message status for sending state */}
@@ -580,13 +578,17 @@ export function Chat({ roomId, className }: ChatProps) {
         {/* Typing indicator */}
         {typingUsers.length > 0 && (
           <div className="flex items-end gap-2 mt-2 px-3">
-            <TypingIndicator users={typingUsers} />
+            <Badge variant="secondary" className="text-xs">
+              {typingUsers.map(u => u.name).join(', ')} typing...
+            </Badge>
           </div>
         )}
-      </ScrollArea>      {/* Input area */}
-      <div className="chat-input-area sticky bottom-0 left-0 right-0 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <form onSubmit={handleSendMessage} method="post" className="flex gap-2 p-4 items-center">
-          <div className="relative flex-1 min-h-[44px]">
+      </div>
+
+      {/* Input area */}
+      <div className="chat-input-area">
+        <form onSubmit={handleSendMessage} method="post">
+          <div className="relative flex-1">
             <Input
               ref={inputRef}
               type="text"
@@ -605,7 +607,6 @@ export function Chat({ roomId, className }: ChatProps) {
                   }
                 }
               }}
-              className="pr-10 h-11"
               disabled={!isFullyConnected || isSending}
             />
             
@@ -624,12 +625,13 @@ export function Chat({ roomId, className }: ChatProps) {
                 <DropdownMenuContent 
                   side="top" 
                   align="end"
-                  className="emoji-picker-container"
+                  className="max-w-[90vw] w-[300px]"
                 >
                   <EmojiPicker
                     theme={Theme.AUTO}
                     onEmojiClick={handleEmojiSelect}
-                    width={300}
+                    width="100%"
+                    height="300px"
                   />
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -639,10 +641,12 @@ export function Chat({ roomId, className }: ChatProps) {
           {/* Send button */}
           <Button 
             type="submit"
+            size="icon"
+            className="h-11 w-11"
             disabled={!newMessage.trim() || !isFullyConnected || isSending}
           >
             {isSending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <SendHorizonal className="h-5 w-5" />
             )}
@@ -650,6 +654,6 @@ export function Chat({ roomId, className }: ChatProps) {
           </Button>
         </form>
       </div>
-    </Card>
+    </div>
   );
 }
