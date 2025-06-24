@@ -1,0 +1,69 @@
+/* Chat Themes CSS Variables */
+
+:root {
+  --chat-primary: #0ea5e9;
+  --chat-background: #ffffff;
+  --chat-accent: #f3f4f6;
+  --chat-text: #1f2937;
+}
+
+body.theme-default {
+  --chat-primary: #0ea5e9;
+  --chat-background: #ffffff;
+  --chat-accent: #f3f4f6;
+  --chat-text: #1f2937;
+}
+
+body.theme-midnight {
+  --chat-primary: #8b5cf6;
+  --chat-background: #1e1b4b;
+  --chat-accent: #312e81;
+  --chat-text: #e0e7ff;
+}
+
+body.theme-sunset {
+  --chat-primary: #f59e0b;
+  --chat-background: #7f1d1d;
+  --chat-accent: #991b1b;
+  --chat-text: #fef3c7;
+}
+
+body.theme-neon {
+  --chat-primary: #10b981;
+  --chat-background: #071a12;
+  --chat-accent: #064e3b;
+  --chat-text: #d1fae5;
+}
+
+body.theme-minimal {
+  --chat-primary: #6b7280;
+  --chat-background: #f9fafb;
+  --chat-accent: #f3f4f6;
+  --chat-text: #1f2937;
+}
+
+/* Custom Chat Components with Theme Variables */
+
+.chat-container {
+  background-color: var(--chat-background);
+  color: var(--chat-text);
+}
+
+.chat-message-own {
+  background-color: var(--chat-primary);
+  color: white;
+}
+
+.chat-message-other {
+  background-color: var(--chat-accent);
+}
+
+.chat-header {
+  background: linear-gradient(to right, var(--chat-background), var(--chat-accent));
+  border-bottom: 1px solid var(--chat-accent);
+}
+
+.chat-input {
+  background-color: var(--chat-background);
+  border-top: 1px solid var(--chat-accent);
+}

@@ -64,7 +64,47 @@ NightVibe is a social platform connecting DJs, clubs, and nightlife enthusiasts.
 
 ## Deployment
 
-The application is ready for deployment on platforms like Vercel, Netlify, or any other hosting service that supports Next.js.
+### Vercel Deployment
+
+1. Push your code to GitHub.
+
+2. Connect your repository to Vercel:
+   - Create a new project in Vercel
+   - Select your GitHub repository
+   - Configure the following settings:
+     - Build Command: `npm run build`
+     - Output Directory: `.next`
+     - Install Command: `npm install`
+
+3. Configure Environment Variables in Vercel:
+   - Go to the project settings
+   - Add all the environment variables from `.env.example`
+   - Ensure the `NEXT_PUBLIC_APP_URL` matches your Vercel deployment URL
+   - Set `NEXT_PUBLIC_SOCKET_SERVER` to your Socket.IO server URL (e.g., on Render)
+
+4. Deploy:
+   - Trigger a new deployment by pushing to your repository
+   - Vercel will automatically build and deploy your application
+
+### Socket.IO Server Deployment (Render)
+
+The Socket.IO server is deployed separately on Render:
+
+1. Push your code to GitHub.
+
+2. Create a new Web Service in Render:
+   - Connect to your GitHub repository
+   - Configure the following settings:
+     - Build Command: `cd socket-server && npm install`
+     - Start Command: `cd socket-server && npm start`
+   - Add the following environment variables:
+     - `NODE_ENV`: `production`
+     - `NEXT_PUBLIC_APP_URL`: Your Vercel deployment URL
+
+3. Deploy and note the Render URL.
+
+4. Update your Vercel environment variables:
+   - Set `NEXT_PUBLIC_SOCKET_SERVER` to the Render URL
 
 ## Contributing
 

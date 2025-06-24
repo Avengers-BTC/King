@@ -5,15 +5,12 @@ console.log('[Socket.IO] Starting standalone server...');
 
 // Create a standalone HTTP server
 const httpServer = createServer((req, res) => {
-  console.log(`[Socket.IO] Received HTTP request: ${req.method} ${req.url}`);
-  
-  // Return OK status for any request - keep it super simple for Railway
+  // Simple health check endpoint
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ 
     status: 'OK',
     message: 'Socket.IO server is running',
-    timestamp: new Date().toISOString(),
-    url: req.url
+    timestamp: new Date().toISOString()
   }));
 });
 
@@ -39,15 +36,6 @@ const socketUsers = new Map(); // socketId -> userId
 // Set up connection handling
 io.on('connection', (socket) => {
   console.log('[Socket.IO] Client connected:', socket.id);
-  console.log('[Socket.IO] Connection details:', {
-    handshake: {
-      headers: socket.handshake.headers,
-      address: socket.handshake.address,
-      time: socket.handshake.time,
-      auth: socket.handshake.auth ? 'Auth provided' : 'No auth'
-    },
-    transport: socket.conn.transport.name
-  });
 
   // Authenticate socket
   const auth = socket.handshake.auth;
@@ -165,18 +153,7 @@ function handleLeaveRoom(socket, roomId, userId) {
 // Get the port from environment or use 3001 as fallback
 const PORT = process.env.PORT || 3001;
 
-// Log environment info
-console.log('[Socket.IO] Environment:', {
-  NODE_ENV: process.env.NODE_ENV,
-  PORT: PORT,
-  APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'not set',
-  RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL || 'not set',
-  RENDER_SERVICE_ID: process.env.RENDER_SERVICE_ID || 'not set'
-});
-
 // Start the server
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`[Socket.IO] Server running on port ${PORT}`);
-  console.log(`[Socket.IO] Health check available at http://localhost:${PORT}/health`);
-  console.log(`[Socket.IO] Socket.IO server URL: ${process.env.RENDER_EXTERNAL_URL || 'localhost'}`);
 });
