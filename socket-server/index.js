@@ -7,26 +7,13 @@ console.log('[Socket.IO] Starting standalone server...');
 const httpServer = createServer((req, res) => {
   console.log(`[Socket.IO] Received HTTP request: ${req.method} ${req.url}`);
   
-  // Add a simple health check endpoint
-  if (req.url === '/health' || req.url === '/' || req.url === '/socket.io/') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ 
-      status: 'Socket.IO server is running',
-      timestamp: new Date().toISOString(),
-      url: req.url
-    }));
-    return;
-  }
-  
-  // Let Socket.IO handle its own routes
-  if (req.url.startsWith('/socket.io/')) {
-    // This will be handled by Socket.IO
-    return;
-  }
-  
-  // Handle 404 for other routes
-  res.writeHead(404);
-  res.end(`Cannot ${req.method} ${req.url}`);
+  // Add a simple health check endpoint - respond to ANY request to make Railway happy
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ 
+    status: 'Socket.IO server is running',
+    timestamp: new Date().toISOString(),
+    url: req.url
+  }));
 });
 
 // Initialize Socket.IO with the standalone server
