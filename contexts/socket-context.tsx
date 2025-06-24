@@ -78,8 +78,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       connectionAttemptsRef.current++;
       
       // Get Socket.IO server URL from environment or fallback to defaults
-      // For testing on localhost, hardcode the URL to ensure proper connection
-      const socketUrl = 'http://localhost:3001';
+      const socketUrl =
+        process.env.NEXT_PUBLIC_SOCKET_SERVER?.trim() || 'http://localhost:3001';
 
       console.log('[Socket.IO] Connecting to:', socketUrl, 'with timeout:', 30000);
       
