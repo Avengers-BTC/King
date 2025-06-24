@@ -344,10 +344,11 @@ export function Chat({ roomId, className }: ChatProps) {
         : msg
     ));
   };
-
   // Message sending handler
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault(); // Prevent form submission
+    e.stopPropagation(); // Stop event propagation
+    
     if (!newMessage.trim() || isSending || !socket || !session?.user) return;
 
     try {
@@ -377,22 +378,27 @@ export function Chat({ roomId, className }: ChatProps) {
       // Add message to local state
       setMessages(prev => [...prev, tempMessage]);
       
-      // Set a timeout to prevent the UI from being stuck indefinitely
-      const messageTimeout = setTimeout(() => {
-        console.warn('[Chat] Message sending timed out');
-        updateMessageStatus(tempId, 'failed');
-        setIsSending(false);
-      }, 8000);
-      
       // Clear typing indicator immediately when message is sent
       if (isTyping) {
         setIsTyping(false);
         socket.emit('typing_end', roomId);
       }
       
-      // Send the message
-      await sendMessage(messageToSend);
-      clearTimeout(messageTimeout);
+      // Send the message with a timeout
+      const messagePromise = sendMessage(messageToSend);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Message sending timed out'));
+        }, 8000);
+      });
+      
+      try {
+        await Promise.race([messagePromise, timeoutPromise]);
+        updateMessageStatus(tempId, 'sent');
+      } catch (error) {
+        console.warn('[Chat] Message sending failed:', error);
+        updateMessageStatus(tempId, 'failed');
+      }
       
       // Focus input after sending
       inputRef.current?.focus();
@@ -523,7 +529,7 @@ export function Chat({ roomId, className }: ChatProps) {
   };
 
   return (
-    <Card className={cn('chat-container overflow-hidden', className)}>
+    <Card className="chat-container overflow-hidden">
       {/* Connection status */}
       {!isFullyConnected && (
         <div className="p-2 bg-yellow-500/10 text-yellow-600 text-sm flex items-center justify-center gap-2">
@@ -533,59 +539,40 @@ export function Chat({ roomId, className }: ChatProps) {
       )}
 
       {/* Chat messages area */}
-      <ScrollArea ref={scrollRef} className="chat-messages">
+      <ScrollArea ref={scrollRef} className="h-[calc(100vh-10rem)] p-4">
         {messages.map((msg, index) => (
           <div 
-            key={msg.id ?? index} 
-            className={cn(
-              'flex flex-col p-3 group',
-              msg.sender?.id === session?.user?.id ? 'items-end' : 'items-start'
-            )}
+            key={msg.id ?? index}
+            className="flex flex-col p-2"
           >
             {msg.type === 'system' ? (
               <SystemMessage message={msg.message} timestamp={msg.timestamp} />
             ) : (
-              <div className={cn(
-                'chat-message max-w-[80%] rounded-lg p-3',
-                msg.sender?.id === session?.user?.id 
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted'
-              )}>
-                {/* Sender info */}
-                <div className="chat-message-sender flex items-center justify-between gap-2">
-                  {msg.sender && (
-                    <div className="flex items-center gap-2">
-                      <UserAvatar 
-                        user={{
-                          id: msg.sender.id,
-                          name: msg.sender.name,
-                          role: msg.sender.role,
-                          image: msg.sender.image
-                        }}
-                        className="h-5 w-5"
-                      />
-                      <span className={cn(
-                        'font-medium',
-                        msg.sender.role === 'DJ' ? 'text-purple-400' : 'text-muted-foreground'
-                      )}>
-                        {msg.sender.name}
-                      </span>
-                    </div>
-                  )}
-                  {renderMessageActions(msg)}
-                </div>
+              <div className="chat-message">
+                {/* Sender name with color */}
+                {msg.sender && (
+                  <div 
+                    className="chat-message-sender"
+                    data-user-index={parseInt(msg.sender.id.slice(-1), 16) % 6}
+                  >
+                    {msg.sender.name}
+                  </div>
+                )}
 
                 {/* Message content */}
-                <div className="mt-1 space-y-1">
+                <div className="mt-1">
                   {renderFormattedMessage(msg)}
-                  {renderReactions(msg)}
-                  {msg.status && (
+                </div>
+
+                {/* Message status for sending state */}
+                {msg.status && (
+                  <div className="text-xs opacity-70 mt-1">
                     <MessageStatus 
                       status={msg.status} 
                       timestamp={msg.timestamp}
                     />
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -600,8 +587,8 @@ export function Chat({ roomId, className }: ChatProps) {
       </ScrollArea>
 
       {/* Input area */}
-      <div className="chat-input-area border-t p-3">
-        <form onSubmit={handleSendMessage} className="flex gap-2">
+      <div className="chat-input-area">
+        <form onSubmit={handleSendMessage} method="post" className="flex gap-2 p-4">
           <div className="relative flex-1">
             <Input
               ref={inputRef}
@@ -615,12 +602,13 @@ export function Chat({ roomId, className }: ChatProps) {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
+                  e.stopPropagation();
                   if (newMessage.trim() && isFullyConnected && !isSending) {
                     handleSendMessage(e as React.FormEvent);
                   }
                 }
               }}
-              className="chat-input pr-10"
+              className="pr-10"
               disabled={!isFullyConnected || isSending}
             />
             
@@ -654,7 +642,6 @@ export function Chat({ roomId, className }: ChatProps) {
           {/* Send button */}
           <Button 
             type="submit"
-            className="chat-button"
             disabled={!newMessage.trim() || !isFullyConnected || isSending}
           >
             {isSending ? (
