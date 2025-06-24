@@ -347,7 +347,7 @@ export function Chat({ roomId, className }: ChatProps) {
 
   // Message sending handler
   const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault(); // Prevent form submission
     if (!newMessage.trim() || isSending || !socket || !session?.user) return;
 
     try {
@@ -371,6 +371,9 @@ export function Chat({ roomId, className }: ChatProps) {
         status: 'sending'
       };
       
+      // Clear the input field right away for better UX
+      setNewMessage('');
+      
       // Add message to local state
       setMessages(prev => [...prev, tempMessage]);
       
@@ -386,9 +389,6 @@ export function Chat({ roomId, className }: ChatProps) {
         setIsTyping(false);
         socket.emit('typing_end', roomId);
       }
-      
-      // Clear the input field right away for better UX
-      setNewMessage('');
       
       // Send the message
       await sendMessage(messageToSend);
@@ -615,7 +615,9 @@ export function Chat({ roomId, className }: ChatProps) {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  handleSendMessage(e as any);
+                  if (newMessage.trim() && isFullyConnected && !isSending) {
+                    handleSendMessage(e as React.FormEvent);
+                  }
                 }
               }}
               className="chat-input pr-10"
