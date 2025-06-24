@@ -528,8 +528,7 @@ export function Chat({ roomId }: ChatProps) {
     );
   };
 
-  return (
-    <div className="chat-wrapper">
+  return (    <div className="flex flex-col h-[100dvh] w-full fixed inset-0 bg-background">
       {/* Connection status */}
       {!isFullyConnected && (
         <div className="p-2 bg-yellow-500/10 text-yellow-600 text-sm flex items-center justify-center gap-2">
@@ -538,8 +537,7 @@ export function Chat({ roomId }: ChatProps) {
         </div>
       )}
 
-      {/* Chat messages area */}
-      <div className="chat-messages" ref={scrollRef}>
+      {/* Chat messages area */}      <div className="flex-1 overflow-y-auto px-2 py-4" ref={scrollRef}>
         {messages.map((msg, index) => (
           <div key={msg.id ?? index} className="flex flex-col">
             {msg.type === 'system' ? (
@@ -583,11 +581,9 @@ export function Chat({ roomId }: ChatProps) {
             </Badge>
           </div>
         )}
-      </div>
-
-      {/* Input area */}
-      <div className="chat-input-area">
-        <form onSubmit={handleSendMessage} method="post">
+      </div>      {/* Input area */}
+      <div className="sticky bottom-0 left-0 right-0 w-full bg-background border-t safe-bottom">
+        <form onSubmit={handleSendMessage} method="post" className="flex items-center gap-2 p-2">
           <div className="relative flex-1">
             <Input
               ref={inputRef}

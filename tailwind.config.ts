@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
 
 const config: Config = {
   darkMode: ['class'],
@@ -16,7 +17,7 @@ const config: Config = {
         'app-text': 'rgb(var(--app-text) / <alpha-value>)',
         'electric-pink': '#ff005c',
         'neon-cyan': '#00e0ff',
-        
+
         // Shadcn colors
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
@@ -125,6 +126,24 @@ const config: Config = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [
+    require('tailwindcss-animate'),
+    plugin(function ({ addUtilities }) {
+      addUtilities({
+        '.pb-safe': {
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        },
+        '.pt-safe': {
+          paddingTop: 'env(safe-area-inset-top)',
+        },
+        '.pl-safe': {
+          paddingLeft: 'env(safe-area-inset-left)',
+        },
+        '.pr-safe': {
+          paddingRight: 'env(safe-area-inset-right)',
+        },
+      });
+    }),
+  ],
 };
 export default config;

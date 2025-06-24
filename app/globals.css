@@ -87,31 +87,13 @@
   body {
     @apply bg-app-bg text-app-text;
   }
-  
-  /* Mobile chat fixes */
-  .chat-container {
-    @apply h-[100dvh] w-full fixed inset-0 flex flex-col overflow-hidden;
-  }
-  
-  .chat-message {
-    @apply rounded-lg p-3 mb-2 break-words;
-    max-width: 85%;
-    background-color: #18181b;
-    color: white;
-  }
-  
-  .chat-input-area {
-    @apply sticky bottom-0 left-0 right-0 w-full bg-background border-t pb-safe;
-  }
-  
-  .chat-input-area form {
-    @apply flex items-center gap-2 p-2;
-  }
-  
-  .chat-input-area input {
-    @apply min-h-[44px] text-base;
+}
+
+@layer utilities {
+  .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0.5rem);
   }
+}
   
   /* Prevent iOS zoom on input */
   @media screen and (max-width: 768px) {
@@ -119,7 +101,6 @@
       font-size: 16px;
     }
   }
-}
 
 @layer components {
   .glow-button {
