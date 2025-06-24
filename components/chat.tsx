@@ -179,10 +179,9 @@ export function Chat({ roomId }: ChatProps) {
       socket.off('room_joined', handleRoomJoined);
       socket.off('error', handleError);
     };
-  }, [socket, chatConnected, roomId, session?.user?.role, toast]);
-
-  // Auto scroll to bottom when new messages arrive
+  }, [socket, chatConnected, roomId, session?.user?.role, toast]);  // Auto scroll to bottom when new messages arrive
   useEffect(() => {
+    // Simple scroll to bottom without relying on Radix UI's internals
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
@@ -526,9 +525,8 @@ export function Chat({ roomId }: ChatProps) {
         dangerouslySetInnerHTML={{ __html: formattedText }}
       />
     );
-  };
-
-  return (    <div className="flex flex-col h-[100dvh] w-full fixed inset-0 bg-background">
+  };  return (
+    <Card className="flex flex-col h-[calc(100vh-2rem)]">
       {/* Connection status */}
       {!isFullyConnected && (
         <div className="p-2 bg-yellow-500/10 text-yellow-600 text-sm flex items-center justify-center gap-2">
@@ -537,29 +535,34 @@ export function Chat({ roomId }: ChatProps) {
         </div>
       )}
 
-      {/* Chat messages area */}      <div className="flex-1 overflow-y-auto px-2 py-4" ref={scrollRef}>
+      {/* Chat messages area - with padding-bottom to ensure messages aren't hidden behind input */}
+      <div className="flex-1 overflow-y-auto p-4 pb-2 space-y-4" ref={scrollRef}>
         {messages.map((msg, index) => (
           <div key={msg.id ?? index} className="flex flex-col">
             {msg.type === 'system' ? (
               <SystemMessage message={msg.message} timestamp={msg.timestamp} />
             ) : (
-              <div className="chat-message">
-                {/* Sender name with color */}
-                {msg.sender && (
-                  <div 
-                    className="chat-message-sender"
-                    data-user-index={parseInt(msg.sender.id.slice(-1), 16) % 6}
-                  >
-                    {msg.sender.name}
-                  </div>
-                )}
-
-                {/* Message content */}
-                <div className="mt-1">
-                  {msg.message}
+              <div className="chat-message group">
+                {/* Sender info and actions */}
+                <div className="flex items-start justify-between gap-2">
+                  {msg.sender && (
+                    <div 
+                      className="chat-message-sender"
+                      data-user-index={parseInt(msg.sender.id.slice(-1), 16) % 6}
+                    >
+                      {msg.sender.name}
+                    </div>
+                  )}
+                  {renderMessageActions(msg)}
                 </div>
 
-                {/* Message status for sending state */}
+                {/* Message content */}
+                {renderFormattedMessage(msg)}
+
+                {/* Message reactions */}
+                {renderReactions(msg)}
+
+                {/* Message status */}
                 {msg.status && (
                   <div className="text-xs opacity-70 mt-1">
                     <MessageStatus 
@@ -575,15 +578,13 @@ export function Chat({ roomId }: ChatProps) {
 
         {/* Typing indicator */}
         {typingUsers.length > 0 && (
-          <div className="flex items-end gap-2 mt-2 px-3">
-            <Badge variant="secondary" className="text-xs">
-              {typingUsers.map(u => u.name).join(', ')} typing...
-            </Badge>
+          <div className="flex items-end gap-2 mt-2">
+            <TypingIndicator users={typingUsers} />
           </div>
         )}
-      </div>      {/* Input area */}
-      <div className="sticky bottom-0 left-0 right-0 w-full bg-background border-t safe-bottom">
-        <form onSubmit={handleSendMessage} method="post" className="flex items-center gap-2 p-2">
+      </div>      {/* Input area - with sticky positioning and safe area padding for mobile */}
+      <div className="border-t bg-card sticky bottom-0 left-0 right-0 z-10">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-2 pb-safe">
           <div className="relative flex-1">
             <Input
               ref={inputRef}
@@ -602,8 +603,8 @@ export function Chat({ roomId }: ChatProps) {
                     handleSendMessage(e as React.FormEvent);
                   }
                 }
-              }}
-              disabled={!isFullyConnected || isSending}
+              }}              disabled={!isFullyConnected || isSending}
+              className="pr-10 min-h-[44px]"
             />
             
             {/* Emoji picker */}
@@ -632,13 +633,11 @@ export function Chat({ roomId }: ChatProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-          </div>
-
-          {/* Send button */}
+          </div>          {/* Send button */}
           <Button 
             type="submit"
             size="icon"
-            className="h-11 w-11"
+            className="h-10 w-10 sm:h-11 sm:w-11 shrink-0"
             disabled={!newMessage.trim() || !isFullyConnected || isSending}
           >
             {isSending ? (
@@ -650,6 +649,6 @@ export function Chat({ roomId }: ChatProps) {
           </Button>
         </form>
       </div>
-    </div>
+    </Card>
   );
 }
