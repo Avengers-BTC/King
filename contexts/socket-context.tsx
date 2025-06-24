@@ -74,26 +74,24 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    try {
-      console.log('[Socket.IO] Initializing connection...');
+    try {      console.log('[Socket.IO] Initializing connection...');
       connectionAttemptsRef.current++;
-
-      // Get base URL
+      
+      // Get Socket.IO server URL from environment or fallback to defaults
       const socketUrl = typeof window !== 'undefined' 
-        ? (process.env.NEXT_PUBLIC_APP_URL || window.location.origin) 
-        : 'http://localhost:3000';
+        ? (process.env.NEXT_PUBLIC_SOCKET_SERVER || `${window.location.protocol}//${window.location.hostname}:3001`) 
+        : 'http://localhost:3001';
 
-      // Create socket instance with polling first
+      console.log('[Socket.IO] Connecting to:', socketUrl);      // Create socket instance with polling first
       const socketInstance = io(socketUrl, {
-        path: '/api/socketio',
-        addTrailingSlash: false,
         reconnection: true,
-        reconnectionAttempts: 3,
-        reconnectionDelay: 2000,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        timeout: 20000,
+        timeout: 30000,
         autoConnect: true,
         transports: ['polling', 'websocket'],
+        path: '/socket.io/',  // Use standard Socket.IO path
         auth: {
           token: session.user.id
         }
