@@ -26,22 +26,9 @@ export function SystemMessage({ message, timestamp, type = 'info', className }: 
   
   if (!show) return null;
     return (
-    <div 
-      className={cn(
-        'flex items-center justify-center my-2 animate-in fade-in slide-in-from-bottom-5 duration-300',
-        className
-      )}
-    >
-      <div className={cn(
-        'px-3 py-2 rounded-lg bg-secondary/60 text-sm flex items-center gap-2 shadow-sm border border-secondary/30',
-        type === 'join' && 'bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30',
-        type === 'leave' && 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30'
-      )}>
-        <User className="h-3.5 w-3.5" />
-        <span className="font-medium">{message}</span>
-        <span className="text-xs opacity-70">
-          {new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </span>
+    <div className="w-full flex justify-center my-2 px-2 sm:px-4">
+      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 text-xs sm:text-sm text-muted-foreground">
+        <span>{message}</span>
       </div>
     </div>
   );

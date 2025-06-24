@@ -23,14 +23,21 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const healthCheckIntervalRef = useRef<ReturnType<typeof setInterval>>();
   const socketRef = useRef<Socket | null>(null);
   const connectionAttemptsRef = useRef(0);
-  const maxConnectionAttempts = 3;
+  const maxConnectionAttempts = 5; // Increased from 3
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
+  // Enhanced cleanup with timeout clearing
   const cleanup = useCallback(() => {
     console.log('[Socket.IO] Cleaning up connection...');
     
     if (healthCheckIntervalRef.current) {
       clearInterval(healthCheckIntervalRef.current);
       healthCheckIntervalRef.current = undefined;
+    }
+
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = undefined;
     }
     
     if (socketRef.current) {
@@ -56,143 +63,109 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     }, 25000);
   }, []);
 
-  useEffect(() => {
-    if (!session?.user?.id || status !== 'authenticated') {
-      console.log('[Socket.IO] Not authenticated, cleaning up');
-      cleanup();
-      return;
-    }
+  // Initialize socket with optimized settings
+  const initSocket = useCallback(() => {
+    if (!session?.user || status !== 'authenticated') return;
+    
+    cleanup();
 
-    if (socketRef.current?.connected) {
-      console.log('[Socket.IO] Already connected');
-      return;
-    }
+    console.log('[Socket.IO] Initializing socket connection...');
+    const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
+      path: '/socket.io/',
+      transports: ['polling', 'websocket'],
+      // Optimized timeouts for free tier
+      timeout: 20000,           // 20s connect timeout
+      reconnectionDelay: 1000,  // Start with 1s delay
+      reconnectionDelayMax: 10000, // Max 10s delay
+      // Retry logic
+      reconnectionAttempts: 5,
+      autoConnect: false // We'll connect manually after setup
+    });
 
-    if (connectionAttemptsRef.current >= maxConnectionAttempts) {
-      console.log('[Socket.IO] Max connection attempts reached');
-      cleanup();
-      return;
-    }
+    // Track connection timing
+    const connectStart = Date.now();
 
-    try {      console.log('[Socket.IO] Initializing connection...');
+    // Setup event handlers before connecting
+    socketInstance.on('connect', () => {
+      const connectTime = Date.now() - connectStart;
+      console.log(`[Socket.IO] Connected in ${connectTime}ms`);
+      setIsConnected(true);
+      connectionAttemptsRef.current = 0;
+      
+      // Send user data
+      if (session?.user) {
+        socketInstance.emit('user:join', {
+          userId: session.user.id,
+          name: session.user.name,
+          image: session.user.image
+        });
+      }
+    });
+
+    socketInstance.on('disconnect', (reason) => {
+      console.log('[Socket.IO] Disconnected:', reason);
+      setIsConnected(false);
+    });
+
+    socketInstance.on('connect_error', (error) => {
+      console.error('[Socket.IO] Connection error:', error.message);
+      
+      // Increment attempts and try reconnecting with backoff
       connectionAttemptsRef.current++;
-      
-      // Get Socket.IO server URL from environment or fallback to defaults
-      const socketUrl =
-        process.env.NEXT_PUBLIC_SOCKET_SERVER?.trim() || 'http://localhost:3001';
-
-      console.log('[Socket.IO] Connecting to:', socketUrl, 'with timeout:', 30000);
-      
-      // Add retry logic for Render's sleep/wake cycle
-      const maxRetries = 3;
-      let retryCount = 0;
-      let retryTimeout = 2000; // Start with 2 seconds      // Create socket instance with polling first
-      const socketInstance = io(socketUrl, {
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 30000,
-        autoConnect: true,
-        transports: ['polling', 'websocket'],
-        path: '/socket.io/',  // Use standard Socket.IO path
-        auth: {
-          token: session.user.id,
-          userData: {
-            id: session.user.id,
-            name: session.user.name || 'Anonymous',
-            role: session.user.role || 'USER',
-            image: session.user.image || undefined
-          }
-        }
-      });
-
-      // Handle initial connection error (might be due to Render sleeping)
-      socketInstance.on('connect_error', (err) => {
-        console.error('[Socket.IO] Connection error:', err.message);
+      if (connectionAttemptsRef.current < maxConnectionAttempts) {
+        const delay = Math.min(1000 * Math.pow(2, connectionAttemptsRef.current - 1), 10000);
+        console.log(`[Socket.IO] Retrying in ${delay}ms (attempt ${connectionAttemptsRef.current}/${maxConnectionAttempts})`);
         
-        // If we're still within retry limits, attempt reconnection
-        if (retryCount < maxRetries) {
-          retryCount++;
-          console.log(`[Socket.IO] Retrying connection (${retryCount}/${maxRetries}) in ${retryTimeout/1000}s...`);
-          
-          setTimeout(() => {
-            console.log('[Socket.IO] Attempting reconnection...');
-            socketInstance.connect();
-          }, retryTimeout);
-          
-          // Exponential backoff
-          retryTimeout *= 2;
-        }
-      });
-
-      // Store reference
-      socketRef.current = socketInstance;      // Set up event listeners
-      socketInstance.on('connect', () => {
-        console.log('[Socket.IO] Connected:', socketInstance.id);
-        setSocket(socketInstance);
-        setIsConnected(true);
-        connectionAttemptsRef.current = 0;
-        startHealthCheck(socketInstance);
-        
-        // Send user data to server on successful connection
-        if (session?.user) {
-          console.log('[Socket.IO] Sending user data to server');
-          socketInstance.emit('set_user_data', {
-            id: session.user.id,
-            name: session.user.name || 'Anonymous',
-            role: session.user.role || 'USER',
-            email: session.user.email,
-            image: session.user.image
-          });
-        }
-      });
-
-      socketInstance.on('disconnect', (reason) => {
-        console.log('[Socket.IO] Disconnected:', reason);
-        setIsConnected(false);
-      });
-
-      socketInstance.on('connect_error', (error) => {
-        console.error('[Socket.IO] Connection error:', error);
-        setIsConnected(false);
-      });
-
-      socketInstance.on('error', (error) => {
-        console.error('[Socket.IO] Socket error:', error);
-      });
-
-      socketInstance.on('heartbeat-ack', () => {
-        console.log('[Socket.IO] Heartbeat acknowledged');
-      });
-
-      // Handle reconnection events
-      socketInstance.on('reconnect', (attemptNumber) => {
-        console.log(`[Socket.IO] Reconnected after ${attemptNumber} attempts`);
-        setIsConnected(true);
-      });
-      
-      socketInstance.on('reconnect_attempt', (attemptNumber) => {
-        console.log(`[Socket.IO] Reconnection attempt ${attemptNumber}`);
-      });
-      
-      socketInstance.on('reconnect_error', (error) => {
-        console.error('[Socket.IO] Reconnection error:', error);
-      });
-      
-      socketInstance.on('reconnect_failed', () => {
-        console.error('[Socket.IO] Failed to reconnect after all attempts');
-        setIsConnected(false);
-      });
-
-      return () => {
+        reconnectTimeoutRef.current = setTimeout(() => {
+          console.log('[Socket.IO] Attempting reconnect...');
+          socketInstance.connect();
+        }, delay);
+      } else {
+        console.error('[Socket.IO] Max connection attempts reached');
         cleanup();
-      };
-    } catch (error) {
-      console.error('[Socket.IO] Error initializing socket:', error);
-      cleanup();
-    }
-  }, [session?.user?.id, status, cleanup, startHealthCheck]);
+      }
+    });
+
+    socketInstance.on('error', (error) => {
+      console.error('[Socket.IO] Socket error:', error);
+    });
+
+    socketInstance.on('heartbeat-ack', () => {
+      console.log('[Socket.IO] Heartbeat acknowledged');
+    });
+
+    // Handle reconnection events
+    socketInstance.on('reconnect', (attemptNumber) => {
+      console.log(`[Socket.IO] Reconnected after ${attemptNumber} attempts`);
+      setIsConnected(true);
+    });
+    
+    socketInstance.on('reconnect_attempt', (attemptNumber) => {
+      console.log(`[Socket.IO] Reconnection attempt ${attemptNumber}`);
+    });
+    
+    socketInstance.on('reconnect_error', (error) => {
+      console.error('[Socket.IO] Reconnection error:', error);
+    });
+    
+    socketInstance.on('reconnect_failed', () => {
+      console.error('[Socket.IO] Failed to reconnect after all attempts');
+      setIsConnected(false);
+    });
+
+    // Now connect
+    console.log('[Socket.IO] Connecting...');
+    socketInstance.connect();
+
+    socketRef.current = socketInstance;
+    setSocket(socketInstance);
+
+    return () => cleanup();
+  }, [session, status, cleanup]);
+
+  useEffect(() => {
+    initSocket();
+  }, [initSocket]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>

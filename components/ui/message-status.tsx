@@ -1,41 +1,46 @@
 import React from 'react';
-import { Check, CheckCheck, Clock, AlertCircle } from 'lucide-react';
+import { Check, CheckCheck, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MessageStatusProps {
-  status: 'sending' | 'sent' | 'delivered' | 'error';
-  timestamp: string;
+  status: 'sending' | 'sent' | 'delivered' | 'failed';
+  timestamp?: string;
   className?: string;
 }
 
 export function MessageStatus({ status, timestamp, className }: MessageStatusProps) {
-  const getStatusIcon = () => {
+  const getStatusContent = () => {
     switch (status) {
       case 'sending':
-        return <Clock className="h-3 w-3 animate-pulse" />;
+        return (
+          <>
+            <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
+            <span>Sending{timestamp ? ` • ${formatTime(timestamp)}` : '...'}</span>
+          </>
+        );
       case 'sent':
-        return <Check className="h-3 w-3" />;
+        return (
+          <>
+            <Check className="h-3 w-3 inline mr-1" />
+            <span>Sent{timestamp ? ` • ${formatTime(timestamp)}` : ''}</span>
+          </>
+        );
       case 'delivered':
-        return <CheckCheck className="h-3 w-3" />;
-      case 'error':
-        return <AlertCircle className="h-3 w-3 text-destructive" />;
+        return (
+          <>
+            <CheckCheck className="h-3 w-3 inline mr-1 text-green-500" />
+            <span>Delivered{timestamp ? ` • ${formatTime(timestamp)}` : ''}</span>
+          </>
+        );
+      case 'failed':
+        return (
+          <>
+            <AlertCircle className="h-3 w-3 inline mr-1 text-destructive" />
+            <span>Failed to send{timestamp ? ` • ${formatTime(timestamp)}` : ''}</span>
+          </>
+        );
       default:
         return null;
-    }
-  };
-
-  const getStatusColor = () => {
-    switch (status) {
-      case 'sending':
-        return 'text-muted-foreground';
-      case 'sent':
-        return 'text-muted-foreground';
-      case 'delivered':
-        return 'text-green-500';
-      case 'error':
-        return 'text-destructive';
-      default:
-        return 'text-muted-foreground';
     }
   };
 
@@ -56,13 +61,10 @@ export function MessageStatus({ status, timestamp, className }: MessageStatusPro
   };
 
   return (
-    <div className={cn(
-      'flex items-center gap-1 text-xs',
-      getStatusColor(),
-      className
-    )}>
-      <span>{formatTime(timestamp)}</span>
-      {getStatusIcon()}
+    <div className={cn("flex justify-end items-center gap-1 mt-1", className)}>
+      <span className="text-[10px] sm:text-xs text-muted-foreground/75">
+        {getStatusContent()}
+      </span>
     </div>
   );
-} 
+}

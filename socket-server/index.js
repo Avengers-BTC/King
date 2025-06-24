@@ -22,10 +22,30 @@ const io = new Server(httpServer, {
     credentials: true
   },
   transports: ['polling', 'websocket'],
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  path: '/socket.io/', // Ensure the path is explicitly set
-  connectTimeout: 45000
+  // More aggressive timeouts for free tier
+  pingTimeout: 30000,      // 30s ping timeout (was 60s)
+  pingInterval: 15000,     // 15s ping interval (was 25s)
+  connectTimeout: 20000,   // 20s connect timeout (was 45s)
+  // Enable adaptable backoff 
+  reconnectionDelay: 1000,    // Start with 1s delay
+  reconnectionDelayMax: 10000, // Max 10s delay
+  maxRetries: 5,              // Try 5 times
+  path: '/socket.io/' // Ensure the path is explicitly set
+});
+
+// Track server state
+let isServerReady = false;
+let coldStartTime = Date.now();
+
+// Cold start detection 
+io.use((socket, next) => {
+  // If this is first connection during cold start
+  if (!isServerReady) {
+    const startupTime = Date.now() - coldStartTime;
+    console.log(`[Socket.IO] Cold start completed in ${startupTime}ms`);
+    isServerReady = true;
+  }
+  next();
 });
 
 // Set up global error handlers
@@ -69,6 +89,9 @@ const socketUsers = new Map(); // socketId -> userId
 
 // Set up connection handling
 io.on('connection', (socket) => {
+  const connTime = Date.now() - socket.handshake.time;
+  console.log(`[Socket.IO] Client connected in ${connTime}ms, id: ${socket.id}`);
+
   console.log('[Socket.IO] Client connected:', socket.id);
 
   // Authenticate socket

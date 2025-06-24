@@ -102,6 +102,84 @@
   .glass-card {
     @apply bg-app-surface/80 backdrop-blur-sm border border-border/20 rounded-xl;
   }
+  
+  /* Mobile-optimized chat styles */
+  .chat-container {
+    @apply flex flex-col h-[calc(100vh-4rem)] sm:h-[600px];
+    @apply sm:max-h-[80vh];
+  }
+
+  .chat-messages {
+    @apply flex-1 p-2 sm:p-4;
+    @apply space-y-2 sm:space-y-3;
+  }
+
+  .chat-input-area {
+    @apply p-2 sm:p-4;
+    @apply gap-2 sm:gap-3;
+    @apply sticky bottom-0;
+    @apply bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75;
+  }
+
+  .chat-message {
+    @apply p-2 sm:p-3;
+    @apply text-sm sm:text-base;
+    @apply break-words;
+    @apply max-w-[85%] sm:max-w-[75%];
+    @apply rounded-xl;
+    @apply shadow-sm;
+  }
+
+  .chat-message-sender {
+    @apply text-xs sm:text-sm;
+    @apply mb-0.5 sm:mb-1;
+  }
+
+  .chat-controls {
+    @apply flex items-center;
+    @apply gap-1 sm:gap-2;
+  }
+
+  .chat-input {
+    @apply h-10 sm:h-12;
+    @apply px-3 sm:px-4;
+    @apply text-base;
+    @apply rounded-full;
+  }
+
+  .chat-button {
+    @apply h-10 sm:h-12;
+    @apply px-3 sm:px-4;
+    @apply rounded-full;
+    @apply text-base;
+    @apply flex items-center justify-center;
+    @apply transition-all duration-200;
+    @apply active:scale-95;
+    @apply touch-manipulation;
+  }
+
+  .emoji-picker-container {
+    @apply fixed sm:absolute;
+    @apply bottom-0 sm:bottom-auto;
+    @apply left-0 sm:left-auto;
+    @apply right-0 sm:right-0;
+    @apply w-full sm:w-auto;
+    @apply z-50;
+  }
+
+  /* Touch-optimized dropdowns */
+  .touch-dropdown {
+    @apply p-4 sm:p-2;
+    @apply min-w-[200px];
+  }
+
+  .touch-dropdown-item {
+    @apply py-3 sm:py-2;
+    @apply px-4;
+    @apply text-base sm:text-sm;
+    @apply active:bg-accent;
+    @apply touch-manipulation;
+  }
 }
 
 /* Custom scrollbar */
