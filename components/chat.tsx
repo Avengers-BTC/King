@@ -5,6 +5,7 @@ import { useChat } from '@/hooks/use-chat';
 import { useChatRoom } from '@/hooks/use-chat-room';
 import { useSocket } from '@/contexts/socket-context';
 import { cn } from '@/lib/utils';
+import { ChatSounds } from '@/lib/chat-sounds';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -40,6 +41,8 @@ import {
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
+import { SystemMessage } from '@/components/ui/system-message';
+import { ChatDiagnosticTool } from '@/components/chat-diagnostic-tool';
 
 interface ChatProps {
   roomId: string;
@@ -155,6 +158,82 @@ export function Chat({ roomId, className }: ChatProps) {
     };
   }, [showEmojiPicker]);
 
+  // Track user join/leave events
+  const [systemMessages, setSystemMessages] = useState<Array<{
+    id: string;
+    message: string;
+    timestamp: string;
+    type: 'join' | 'leave' | 'info';
+  }>>([]);
+
+  // Add event listeners for user join/leave
+  useEffect(() => {
+    if (!socket || !chatConnected) return;
+    
+    const handleUserJoined = (data: { 
+      user: { id: string; name?: string; role?: string };
+      message: string;
+      timestamp: string;
+      roomId: string;
+    }) => {
+      if (data.roomId !== roomId) return;
+      
+      // Add system message
+      const userName = data.user.name || `User ${data.user.id.slice(0, 8)}`;
+      const message = data.message || `${data.user.role === 'DJ' ? 'DJ' : 'User'} ${userName} joined the chat`;
+        // Generate a unique ID with random component to prevent duplicates
+      const uniqueId = `join_${data.user.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      setSystemMessages(prev => [
+        ...prev,
+        {
+          id: uniqueId,
+          message,
+          timestamp: data.timestamp,
+          type: 'join'
+        }
+      ]);
+      
+      // Play sound
+      if (data.user.role === 'DJ') {
+        // Special sound for DJ joining
+        ChatSounds.playDJJoined();
+      } else {
+        ChatSounds.playUserJoined();
+      }
+    };
+    
+    const handleUserLeft = (data: { 
+      userId: string;
+      userName?: string;
+      roomId: string;
+      timestamp?: string;
+    }) => {
+      if (data.roomId !== roomId) return;
+      
+      const userName = data.userName || `User ${data.userId.slice(0, 8)}`;
+        // Generate a unique ID with random component to prevent duplicates
+      const uniqueId = `leave_${data.userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      setSystemMessages(prev => [
+        ...prev,
+        {
+          id: uniqueId,
+          message: `${userName} left the chat`,
+          timestamp: data.timestamp || new Date().toISOString(),
+          type: 'leave'
+        }
+      ]);
+    };
+    
+    socket.on('user_joined', handleUserJoined);
+    socket.on('user_left', handleUserLeft);
+    
+    return () => {
+      socket.off('user_joined', handleUserJoined);
+      socket.off('user_left', handleUserLeft);
+    };
+  }, [socket, chatConnected, roomId]);
   const handleTyping = () => {
     if (!socket || !session?.user) return;
 
@@ -163,7 +242,9 @@ export function Chat({ roomId, className }: ChatProps) {
       socket.emit('typing_start', {
         roomId,
         userName: session.user.name,
-        userRole: session.user.role
+        userRole: session.user.role,
+        userId: session.user.id,
+        image: session.user.image
       });
     }
 
@@ -199,7 +280,6 @@ export function Chat({ roomId, className }: ChatProps) {
       }
     }, 10);
   };
-
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || isSending || !socket || !session?.user) return;
@@ -214,19 +294,21 @@ export function Chat({ roomId, className }: ChatProps) {
         setIsSending(false);
       }, 8000);
       
-      // Send the message
-      await sendMessage(messageToSend);
-      clearTimeout(messageTimeout);
-      
-      // Clear the input field and focus it
-      setNewMessage('');
-      inputRef.current?.focus();
-        
-      // Clear typing indicator when message is sent
+      // Clear typing indicator immediately when message is sent
       if (isTyping) {
         setIsTyping(false);
         socket.emit('typing_end', roomId);
       }
+      
+      // Clear the input field right away for better UX
+      setNewMessage('');
+      
+      // Send the message
+      await sendMessage(messageToSend);
+      clearTimeout(messageTimeout);
+      
+      // Focus input after sending
+      inputRef.current?.focus();
     } catch (error) {
       console.error('[Chat] Error sending message:', error);
       toast.error('Failed to send message. Please try again.');
@@ -351,6 +433,19 @@ export function Chat({ roomId, className }: ChatProps) {
     );
   };
 
+  // Utility to generate a consistent color from a string (user id)
+  function getUserColor(userId: string) {
+    const colors = [
+      '#e57373', '#f06292', '#ba68c8', '#64b5f6', '#4dd0e1', '#81c784', '#ffd54f', '#ffb74d', '#a1887f', '#90a4ae',
+      '#f44336', '#e91e63', '#9c27b0', '#2196f3', '#00bcd4', '#4caf50', '#ffeb3b', '#ff9800', '#795548', '#607d8b'
+    ];
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }
+
   return (
     <Card className={cn("flex flex-col h-full rounded-none md:rounded-xl", className)}>
       <div className="flex items-center gap-3 p-4 border-b bg-background/50 backdrop-blur-sm">
@@ -381,23 +476,25 @@ export function Chat({ roomId, className }: ChatProps) {
               </Badge>
             )}
           </div>
-        </div>
-
-        <div className="flex items-center gap-1">
+        </div>        <div className="flex items-center gap-1">
           {isDJ && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => {
-                setIsResetting(true);
-                resetRoomCount();
-                setTimeout(() => setIsResetting(false), 1000);
-              }}
-              disabled={isResetting}
-            >
-              <RefreshCw className={cn("h-4 w-4", isResetting && "animate-spin")} />
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => {
+                  setIsResetting(true);
+                  resetRoomCount();
+                  setTimeout(() => setIsResetting(false), 1000);
+                }}
+                disabled={isResetting}
+              >
+                <RefreshCw className={cn("h-4 w-4", isResetting && "animate-spin")} />
+              </Button>
+              
+              <ChatDiagnosticTool roomId={roomId} />
+            </>
           )}
           
           <DropdownMenu>
@@ -450,197 +547,210 @@ export function Chat({ roomId, className }: ChatProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
-
-      <ScrollArea ref={scrollRef} className="flex-1 p-4">
-        <div className="space-y-4">
+      </div>      <ScrollArea ref={scrollRef} className="flex-1 p-4">
+        <div className="space-y-4">          {/* System messages - filter duplicates */}
+          {systemMessages
+            .filter((msg, index, self) => {
+              // Keep only the last join message for each user
+              if (msg.type === 'join' && msg.id.startsWith('join_')) {
+                const userId = msg.id.split('_')[1]; // Extract user ID from the message ID
+                const lastIndexForUser = self
+                  .map((m, i) => m.id.startsWith(`join_${userId}`) ? i : -1)
+                  .filter(i => i !== -1)
+                  .pop();
+                return index === lastIndexForUser;
+              }
+              return true; // Keep all other messages
+            })
+            .map((sysMsg) => (
+              <SystemMessage 
+                key={sysMsg.id}
+                message={sysMsg.message}
+                timestamp={sysMsg.timestamp}
+                type={sysMsg.type}
+                className="animate-float"
+              />
+            ))}
+          
+          
+          {/* Chat messages */}
           {messages.map((msg) => {
             const isSender = msg.sender.id === session?.user?.id;
             const isNew = Date.now() - new Date(msg.timestamp).getTime() < 5000;
             
-            return (
-              <div
+            return (              <div
                 key={msg.id}
                 className={cn(
-                  'flex gap-3 max-w-[85%]',
-                  isSender ? 'ml-auto flex-row-reverse' : ''
+                  'flex gap-2 max-w-[80vw]',
+                  isSender ? 'ml-auto flex-row-reverse justify-start' : 'mr-auto'
                 )}
               >
                 {!isSender && (
                   <UserAvatar 
                     user={msg.sender} 
                     size="sm" 
-                    showRole={true}
                     className="mt-1"
                   />
                 )}
-                
-                <div className={cn('flex-1', isSender ? 'text-right' : '')}>
+                  <div className={cn('flex-1 flex', isSender ? 'justify-end' : 'justify-start')}>
                   <GlowMessage 
                     isSender={isSender} 
                     animate={isNew}
-                    className="group"
+                    className={cn(
+                      'group relative px-4 py-3 rounded-3xl max-w-[80vw] min-w-[40px] text-sm',
+                      'bg-black', // Always black bubble
+                      'text-white', // Message text is white
+                      'whitespace-pre-line break-words',
+                      'shadow-lg', // Soft box-shadow
+                      isNew ? 'animate-fade-in-up' : '', // Animation for new messages
+                      isSender ? 'ml-2' : 'mr-2', // Space for bubble tail
+                      'touch:p-5' // Extra padding for touch
+                    )}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className={cn(
-                          "font-medium text-sm",
-                          isSender ? "text-primary-foreground/90" : ""
-                        )}>
-                          {msg.sender.name}
-                        </span>
-                        {msg.sender.role === 'DJ' && (
-                          <Badge variant={isSender ? "outline" : "secondary"} className="text-xs">DJ</Badge>
-                        )}
-                        {mutedUsers.has(msg.sender.id) && (
-                          <Badge variant="destructive" className="text-xs">Muted</Badge>
-                        )}
-                      </div>
-                      {renderMessageActions(msg)}
-                    </div>
-                    
-                    {/* Render formatted message here */}
-                    {renderFormattedMessage(msg)}
-
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center gap-1">
-                        {/* Reactions dropdown */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className={cn(
-                                "h-6 w-6 p-0 opacity-50 hover:opacity-100",
-                                isSender ? "text-primary-foreground/80" : ""
-                              )}
-                            >
-                              <Smile className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start">
-                            <div className="flex flex-wrap p-2 gap-2">
-                              {reactionEmojis.map(emoji => (
-                                <Button
-                                  key={emoji}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => addReaction(msg.id, emoji)}
-                                >
-                                  {emoji}
-                                </Button>
-                              ))}
-                            </div>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-
-                      {/* Message status and timestamp */}
-                      <MessageStatus 
-                        status={msg.id.startsWith('temp-') ? 'sending' : 'delivered'} 
-                        timestamp={msg.timestamp}
-                        className={cn(
-                          isSender ? "text-primary-foreground/60" : "text-muted-foreground"
-                        )}
-                      />
-                    </div>
-
-                    {/* Render message reactions */}
-                    {renderReactions(msg)}
+                    {/* Bubble tail */}
+                    {!isSender && (
+                      <span className="absolute -left-2 bottom-2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-black" />
+                    )}
+                    {isSender && (
+                      <span className="absolute -right-2 bottom-2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-l-8 border-l-black" />
+                    )}
+                    <span
+                      className="block text-xs font-semibold mb-1"
+                      style={{ color: isSender ? '#ffd54f' : getUserColor(msg.sender.id) }} // Gold for self, color for others
+                    >
+                      {msg.sender.name}
+                    </span>
+                    <span className="block text-base leading-snug">
+                      {msg.message}
+                    </span>
                   </GlowMessage>
                 </div>
-
-                {isSender && (
-                  <UserAvatar 
-                    user={msg.sender} 
-                    size="sm" 
-                    showRole={true}
-                    className="mt-1"
-                  />
-                )}
               </div>
             );
           })}
-          
-          {/* Enhanced typing indicator */}
-          <TypingIndicator 
-            users={typingUsers} 
-            currentUserId={session?.user?.id}
-          />
-        </div>
-      </ScrollArea>
-
-      <form onSubmit={handleSendMessage} className="p-4 border-t bg-background/50">
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Input
-                  ref={inputRef}
-                  value={newMessage}
-                  onChange={(e) => {
-                    setNewMessage(e.target.value);
-                    handleTyping();
-                  }}
-                  placeholder={
-                    !isFullyConnected 
-                      ? "Connecting..." 
-                      : mutedUsers.has(session?.user?.id as string) 
-                        ? "You are muted" 
-                        : "Type a message..."
-                  }
-                  className="w-full pr-10 rounded-full py-5 pl-4 border-primary/20 focus-visible:ring-primary/30"
-                  disabled={!isFullyConnected || isSending || mutedUsers.has(session?.user?.id as string)}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  disabled={!isFullyConnected || mutedUsers.has(session?.user?.id as string)}
-                >
-                  <Smile className="h-5 w-5 text-muted-foreground hover:text-primary" />
-                </Button>
+            {/* Typing indicator */}
+          {typingUsers.length > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-secondary/70 max-w-[60%] border border-secondary shadow-sm">
+              <div className="flex -space-x-2">
+                {typingUsers.slice(0, 3).map((user) => (
+                  <UserAvatar 
+                    key={user.id}
+                    user={user}
+                    size="sm"
+                    className="border-2 border-background"
+                  />
+                ))}
               </div>
-              <Button 
-                type="submit" 
-                disabled={!isFullyConnected || isSending || !newMessage.trim() || mutedUsers.has(session?.user?.id as string)}
-                className={cn(
-                  "rounded-full w-10 h-10 p-0 flex items-center justify-center",
-                  isSending ? "opacity-70" : ""
+              
+              <div className="text-sm font-medium">
+                {typingUsers.length === 1 && (
+                  <span>{typingUsers[0].name} is typing</span>
                 )}
+                {typingUsers.length === 2 && (
+                  <span>{typingUsers[0].name} and {typingUsers[1].name} are typing</span>
+                )}
+                {typingUsers.length === 3 && (
+                  <span>{typingUsers[0].name}, {typingUsers[1].name}, and {typingUsers[2].name} are typing</span>
+                )}
+                {typingUsers.length > 3 && (
+                  <span>{typingUsers[0].name}, {typingUsers[1].name}, and {typingUsers.length - 2} others are typing</span>
+                )}
+                <span className="inline-flex ml-1">
+                  <span className="animate-bounce">.</span>
+                  <span className="animate-bounce delay-75">.</span>
+                  <span className="animate-bounce delay-150">.</span>
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </ScrollArea>      {/* Typing indicator */}
+      {typingUsers.length > 0 && (
+        <TypingIndicator
+          users={typingUsers}
+          currentUserId={session?.user?.id}
+          className="mx-4 mb-2"
+        />
+      )}
+
+      {/* Chat input */}
+      <form onSubmit={handleSendMessage} className={cn(
+        'flex items-center gap-2 p-4 border-t bg-background/50 backdrop-blur-sm',
+        !isFullyConnected && 'opacity-50 pointer-events-none'
+      )}>
+        <div className="flex-1 relative">
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <Input
+                ref={inputRef}
+                value={newMessage}
+                onChange={(e) => {
+                  setNewMessage(e.target.value);
+                  handleTyping();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(e as any);
+                  }
+                }}
+                placeholder={
+                  !isFullyConnected 
+                    ? "Connecting..." 
+                    : mutedUsers.has(session?.user?.id as string) 
+                      ? "You are muted" 
+                      : "Type a message..."
+                }
+                className="w-full pr-10 rounded-full py-6 pl-5 border-primary/20 focus-visible:ring-primary/30 shadow-sm"
+                disabled={!isFullyConnected || isSending || mutedUsers.has(session?.user?.id as string)}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-secondary/80"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                disabled={!isFullyConnected || mutedUsers.has(session?.user?.id as string)}
               >
-                {isSending ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : !isFullyConnected ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <SendHorizonal className="h-5 w-5" />
-                )}
+                <Smile className="h-5 w-5 text-primary/70 hover:text-primary" />
               </Button>
             </div>
-            {showEmojiPicker && (
-              <div 
-                className="absolute bottom-full mb-2 z-50 right-0 sm:right-auto"
-                ref={emojiPickerRef}
-              >
-                <div className="p-1 bg-card border rounded-lg shadow-lg">
-                  <EmojiPicker
-                    onEmojiClick={handleEmojiClick}
-                    width={window.innerWidth < 640 ? window.innerWidth - 20 : 300}
-                    height={350}
-                    theme={Theme.AUTO}
-                    searchPlaceHolder="Search emoji..."
-                    previewConfig={{
-                      showPreview: window.innerWidth >= 640
-                    }}
-                  />
-                </div>
-              </div>
-            )}
+            <Button 
+              type="submit" 
+              disabled={!isFullyConnected || isSending || !newMessage.trim() || mutedUsers.has(session?.user?.id as string)}
+              className={cn(
+                "rounded-full w-12 h-12 p-0 flex items-center justify-center shadow-md",
+                isSending ? "opacity-70" : ""
+              )}
+            >
+              {isSending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : !isFullyConnected ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <SendHorizonal className="h-5 w-5 animate-pulse-glow" />
+              )}
+            </Button>
           </div>
+          {showEmojiPicker && (
+            <div 
+              className="absolute bottom-full mb-2 z-50 right-0 sm:right-auto"
+              ref={emojiPickerRef}
+            >
+              <div className="p-1 bg-card border rounded-lg shadow-lg">
+                <EmojiPicker
+                  onEmojiClick={handleEmojiClick}
+                  width={window.innerWidth < 640 ? window.innerWidth - 20 : 300}
+                  height={350}
+                  theme={Theme.AUTO}
+                  searchPlaceHolder="Search emoji..."
+                  previewConfig={{
+                    showPreview: window.innerWidth >= 640
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </form>
     </Card>

@@ -58,21 +58,33 @@ export class ChatSounds {
   }
 
   static playUserJoined() {
-    // Welcome sound
-    this.playTone(523, 0.1, 0.04); // C
-    setTimeout(() => this.playTone(659, 0.1, 0.04), 80); // E
-    setTimeout(() => this.playTone(784, 0.15, 0.04), 160); // G
+    // Cheerful ascending sound for user joining
+    if (!this.enabled) return;
+    
+    this.playTone(440, 0.1, 0.05); // A4
+    setTimeout(() => this.playTone(523.25, 0.1, 0.05), 100); // C5
+    setTimeout(() => this.playTone(659.25, 0.2, 0.05), 200); // E5
   }
 
   static playUserLeft() {
-    // Goodbye sound
-    this.playTone(784, 0.1, 0.03); // G
-    setTimeout(() => this.playTone(659, 0.1, 0.03), 80); // E
-    setTimeout(() => this.playTone(523, 0.15, 0.03), 160); // C
+    // Soft descending sound for user leaving
+    if (!this.enabled) return;
+    
+    this.playTone(523.25, 0.1, 0.05); // C5
+    setTimeout(() => this.playTone(440, 0.2, 0.05), 150); // A4
+  }
+
+  static playDJJoined() {
+    // Special fanfare for DJ joining
+    if (!this.enabled) return;
+    
+    this.playTone(523.25, 0.1, 0.1); // C5
+    setTimeout(() => this.playTone(659.25, 0.1, 0.1), 100); // E5
+    setTimeout(() => this.playTone(783.99, 0.3, 0.1), 200); // G5
   }
 
   static playTypingStart() {
     // Very subtle typing sound
     this.playTone(1200, 0.05, 0.02);
   }
-} 
+}

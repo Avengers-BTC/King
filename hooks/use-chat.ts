@@ -63,6 +63,9 @@ export function useChat(roomId: string) {
     socket.on('new_message', (message: Message) => {
       console.log(`[Chat] Received new message in room ${roomId}:`, message);
       
+      // Diagnostics to help troubleshoot message display issues
+      console.log(`[Chat] Current user ID: ${session?.user?.id}, Message sender ID: ${message.sender.id}`);
+      
       // Play sound for received messages (not from current user)
       if (message.sender.id !== session?.user?.id) {
         ChatSounds.playMessageReceived();
@@ -196,20 +199,19 @@ export function useChat(roomId: string) {
         const timeoutId = setTimeout(() => {
           console.warn('[Chat] Send message acknowledgment timed out');
           resolve(); // Resolve anyway to prevent UI from being stuck
-        }, 5000);
-          socket.emit('send_message', payload, (error?: any) => {
+        }, 5000);        socket.emit('send_message', payload, (response: any) => {
           clearTimeout(timeoutId);
           
-          if (error) {
+          if (response && response.success === false) {
             // Remove the temporary message if there was an error
             setMessages(prev => prev.filter(m => m.id !== newMessage.id));
-            reject(error);
+            reject(response);
           } else {
             // Play sound for sent message
             ChatSounds.playMessageSent();
             resolve();
           }
-        });      } catch (err) {
+        });} catch (err) {
         reject(err);
       }
     });

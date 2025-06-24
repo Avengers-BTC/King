@@ -1,0 +1,3 @@
+@echo off
+echo Starting Socket.IO server...
+node index.js

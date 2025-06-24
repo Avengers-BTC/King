@@ -82,6 +82,12 @@ export function useChatRoom(roomId: string): UseChatRoomResult {
       }
       setUserCount(count);
     });
+
+    // Handle user leave events
+    socket.on('user_left', ({ userId }: { userId: string }) => {
+      // Remove from typing users if they were typing
+      setTypingUsers(prev => prev.filter(u => u.id !== userId));
+    });
     
     socket.on('error', (data: { message: string }) => setError(data.message));
       // Handle online users updates
@@ -140,6 +146,7 @@ export function useChatRoom(roomId: string): UseChatRoomResult {
       socket.off('user_stopped_typing');
       socket.off('user_muted');
       socket.off('user_unmuted');
+      socket.off('user_left'); // Add cleanup for user_left event
     };
   }, [socket]);
   // Moderation functions

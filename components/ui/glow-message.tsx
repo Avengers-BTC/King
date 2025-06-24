@@ -28,13 +28,13 @@ export function GlowMessage({
       return () => clearTimeout(timeout);
     }
   }, [animate]);
-
   return (
     <div
-      className={cn(        'relative rounded-lg p-3 transition-all duration-300',
+      className={cn(
+        'relative rounded-lg p-3 transition-all duration-300',
         isSender 
-          ? 'bg-primary text-primary-foreground' 
-          : 'bg-muted',
+          ? 'bg-primary text-primary-foreground max-w-fit' 
+          : 'bg-muted max-w-fit',
         isNew && isSender && 'shadow-[0_0_15px_var(--primary-glow)]',
         isNew && !isSender && 'shadow-[0_0_15px_rgba(120,120,120,0.3)]',
         className
