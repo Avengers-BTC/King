@@ -67,7 +67,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const initSocket = useCallback(() => {
     if (!session?.user || status !== 'authenticated') return;
     
-    cleanup();    console.log('[Socket.IO] Initializing socket connection...');
+    cleanup();
+    console.log('[Socket.IO] Initializing socket connection...');
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER;
     console.log('[Socket.IO] Server URL:', socketServerUrl);
     
@@ -76,20 +77,50 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const socketInstance = io(socketServerUrl, {      path: '/socket.io/',
+    const socketInstance = io(socketServerUrl, {
+      path: '/socket.io/',
       transports: ['websocket', 'polling'],
       forceNew: true,
-      timeout: 20000,           // 20s connect timeout
-      reconnectionDelay: 1000,  // Start with 1s delay
-      reconnectionDelayMax: 10000, // Max 10s delay
-      rejectUnauthorized: false,  // Important for SSL/HTTPS connections
-      // Retry logic
-      reconnectionAttempts: 5,
-      autoConnect: false // We'll connect manually after setup
+      timeout: 20000,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
+      reconnectionAttempts: 10,
+      rejectUnauthorized: false,
+      auth: {
+        token: session.user.id,
+        userData: {
+          id: session.user.id,
+          name: session.user.name,
+          role: session.user.role,
+          image: session.user.image
+        },
+        attemptCount: connectionAttemptsRef.current
+      },
+      extraHeaders: {
+        Authorization: session?.user?.id || ''
+      }
     });
 
     // Track connection timing
     const connectStart = Date.now();
+
+    // Check server health before connecting
+    fetch(socketServerUrl)
+      .then(res => res.json())
+      .then(health => {
+        console.log('[Socket.IO] Server health:', health);
+        if (health.coldStart) {
+          console.log('[Socket.IO] Server is in cold start, waiting...');
+          // Wait a bit longer for cold start
+          setTimeout(() => socketInstance.connect(), 2000);
+        } else {
+          socketInstance.connect();
+        }
+      })
+      .catch(err => {
+        console.error('[Socket.IO] Health check failed:', err);
+        socketInstance.connect(); // Try connecting anyway
+      });
 
     // Setup event handlers before connecting
     socketInstance.on('connect', () => {
@@ -98,23 +129,44 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       setIsConnected(true);
       connectionAttemptsRef.current = 0;
       
+      // Initialize heartbeat
+      startHealthCheck(socketInstance);
+      
       // Send user data
-      if (session?.user) {
-        socketInstance.emit('user:join', {
-          userId: session.user.id,
-          name: session.user.name,
-          image: session.user.image
-        });
+      socketInstance.emit('set_user_data', {
+        id: session.user.id,
+        name: session.user.name,
+        role: session.user.role,
+        image: session.user.image
+      });
+    });
+
+    socketInstance.on('server_ready', (data) => {
+      console.log('[Socket.IO] Server is ready:', data);
+      // Reconnect if we're not already connected
+      if (!socketInstance.connected) {
+        socketInstance.connect();
       }
     });
 
     socketInstance.on('disconnect', (reason) => {
       console.log('[Socket.IO] Disconnected:', reason);
       setIsConnected(false);
-    });    socketInstance.on('connect_error', (error) => {
+
+      // If server initiated disconnect, wait before reconnecting
+      if (reason === 'io server disconnect') {
+        console.log('[Socket.IO] Server initiated disconnect, waiting before reconnect...');
+        setTimeout(() => {
+          if (socketInstance) {
+            console.log('[Socket.IO] Attempting reconnection after server disconnect...');
+            socketInstance.connect();
+          }
+        }, 2000);
+      }
+    });
+
+    socketInstance.on('connect_error', (error) => {
       console.error('[Socket.IO] Connection error:', error.message);
-      console.error('[Socket.IO] Full error:', error);
-      console.log('[Socket.IO] Current server URL:', socketServerUrl);
       
       // Increment attempts and try reconnecting with backoff
       connectionAttemptsRef.current++;
@@ -122,9 +174,26 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         const delay = Math.min(1000 * Math.pow(2, connectionAttemptsRef.current - 1), 10000);
         console.log(`[Socket.IO] Retrying in ${delay}ms (attempt ${connectionAttemptsRef.current}/${maxConnectionAttempts})`);
         
+        // Clear any existing timeout
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+        
         reconnectTimeoutRef.current = setTimeout(() => {
           console.log('[Socket.IO] Attempting reconnect...');
-          socketInstance.connect();
+          // Check server health before reconnecting
+          fetch(socketServerUrl)
+            .then(res => res.json())
+            .then(health => {
+              console.log('[Socket.IO] Server health before reconnect:', health);
+              if (!health.coldStart) {
+                socketInstance.connect();
+              } else {
+                console.log('[Socket.IO] Server still in cold start, waiting...');
+                setTimeout(() => socketInstance.connect(), 2000);
+              }
+            })
+            .catch(() => socketInstance.connect()); // Try anyway if health check fails
         }, delay);
       } else {
         console.error('[Socket.IO] Max connection attempts reached');
