@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: king-socket
+    env: node
+    plan: free
+    buildCommand: cd socket-server && npm install
+    startCommand: cd socket-server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production

@@ -75,14 +75,17 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {      console.log('[Socket.IO] Initializing connection...');
-      connectionAttemptsRef.current++;
-      
-      // Get Socket.IO server URL from environment or fallback to defaults
+      connectionAttemptsRef.current++;      // Get Socket.IO server URL from environment or fallback to defaults
       const socketUrl = typeof window !== 'undefined' 
         ? (process.env.NEXT_PUBLIC_SOCKET_SERVER || `${window.location.protocol}//${window.location.hostname}:3001`) 
         : 'http://localhost:3001';
 
-      console.log('[Socket.IO] Connecting to:', socketUrl);      // Create socket instance with polling first
+      console.log('[Socket.IO] Connecting to:', socketUrl, 'with timeout:', 30000);
+      
+      // Add retry logic for Render's sleep/wake cycle
+      const maxRetries = 3;
+      let retryCount = 0;
+      let retryTimeout = 2000; // Start with 2 seconds      // Create socket instance with polling first
       const socketInstance = io(socketUrl, {
         reconnection: true,
         reconnectionAttempts: 5,
@@ -94,6 +97,25 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         path: '/socket.io/',  // Use standard Socket.IO path
         auth: {
           token: session.user.id
+        }
+      });
+
+      // Handle initial connection error (might be due to Render sleeping)
+      socketInstance.on('connect_error', (err) => {
+        console.error('[Socket.IO] Connection error:', err.message);
+        
+        // If we're still within retry limits, attempt reconnection
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`[Socket.IO] Retrying connection (${retryCount}/${maxRetries}) in ${retryTimeout/1000}s...`);
+          
+          setTimeout(() => {
+            console.log('[Socket.IO] Attempting reconnection...');
+            socketInstance.connect();
+          }, retryTimeout);
+          
+          // Exponential backoff
+          retryTimeout *= 2;
         }
       });
 

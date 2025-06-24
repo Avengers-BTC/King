@@ -7,10 +7,11 @@ console.log('[Socket.IO] Starting standalone server...');
 const httpServer = createServer((req, res) => {
   console.log(`[Socket.IO] Received HTTP request: ${req.method} ${req.url}`);
   
-  // Add a simple health check endpoint - respond to ANY request to make Railway happy
+  // Return OK status for any request - keep it super simple for Railway
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ 
-    status: 'Socket.IO server is running',
+    status: 'OK',
+    message: 'Socket.IO server is running',
     timestamp: new Date().toISOString(),
     url: req.url
   }));
@@ -169,14 +170,13 @@ console.log('[Socket.IO] Environment:', {
   NODE_ENV: process.env.NODE_ENV,
   PORT: PORT,
   APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'not set',
-  HOSTNAME: process.env.HOSTNAME || 'not set',
-  RAILWAY_PUBLIC_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN || 'not set',
-  RAILWAY_SERVICE_ID: process.env.RAILWAY_SERVICE_ID || 'not set'
+  RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL || 'not set',
+  RENDER_SERVICE_ID: process.env.RENDER_SERVICE_ID || 'not set'
 });
 
 // Start the server
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`[Socket.IO] Server running on port ${PORT}`);
   console.log(`[Socket.IO] Health check available at http://localhost:${PORT}/health`);
-  console.log(`[Socket.IO] Socket.IO server URL: ${process.env.RAILWAY_PUBLIC_DOMAIN || 'localhost'}`);
+  console.log(`[Socket.IO] Socket.IO server URL: ${process.env.RENDER_EXTERNAL_URL || 'localhost'}`);
 });
