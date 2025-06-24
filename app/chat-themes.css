@@ -43,12 +43,25 @@ body.theme-minimal {
   --chat-text: #1f2937;
 }
 
-/* Custom Chat Components with Theme Variables */
-
+/* Mobile-first Chat Layout */
 .chat-container {
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   background-color: var(--chat-background);
   color: var(--chat-text);
-  min-height: 100vh;
+  position: relative;
+}
+
+.chat-input-area {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--chat-background);
+  border-top: 1px solid var(--chat-accent);
+  padding: env(safe-area-inset-bottom);
+  margin-bottom: env(safe-area-inset-bottom, 0);
 }
 
 .chat-message {
@@ -58,6 +71,31 @@ body.theme-minimal {
   padding: 0.75rem 1rem;
   max-width: 85%;
   margin: 0.5rem 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Make input more touch-friendly */
+.chat-input-area input {
+  min-height: 44px; /* iOS minimum touch target size */
+  font-size: 16px; /* Prevent iOS zoom on focus */
+  padding: 0.5rem 2.5rem 0.5rem 1rem;
+}
+
+.chat-input-area button {
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Ensure emoji picker doesn't overflow on mobile */
+.emoji-picker-container {
+  max-width: min(300px, 90vw);
+  position: fixed;
+  bottom: 100%;
+  right: 1rem;
 }
 
 .chat-message-own {

@@ -528,8 +528,7 @@ export function Chat({ roomId, className }: ChatProps) {
     );
   };
 
-  return (
-    <Card className="chat-container overflow-hidden">
+  return (    <Card className="chat-container overflow-hidden flex flex-col h-[100dvh]">
       {/* Connection status */}
       {!isFullyConnected && (
         <div className="p-2 bg-yellow-500/10 text-yellow-600 text-sm flex items-center justify-center gap-2">
@@ -539,7 +538,7 @@ export function Chat({ roomId, className }: ChatProps) {
       )}
 
       {/* Chat messages area */}
-      <ScrollArea ref={scrollRef} className="h-[calc(100vh-10rem)] p-4">
+      <ScrollArea ref={scrollRef} className="flex-1 p-4">
         {messages.map((msg, index) => (
           <div 
             key={msg.id ?? index}
@@ -584,12 +583,10 @@ export function Chat({ roomId, className }: ChatProps) {
             <TypingIndicator users={typingUsers} />
           </div>
         )}
-      </ScrollArea>
-
-      {/* Input area */}
-      <div className="chat-input-area">
-        <form onSubmit={handleSendMessage} method="post" className="flex gap-2 p-4">
-          <div className="relative flex-1">
+      </ScrollArea>      {/* Input area */}
+      <div className="chat-input-area sticky bottom-0 left-0 right-0 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <form onSubmit={handleSendMessage} method="post" className="flex gap-2 p-4 items-center">
+          <div className="relative flex-1 min-h-[44px]">
             <Input
               ref={inputRef}
               type="text"
@@ -608,7 +605,7 @@ export function Chat({ roomId, className }: ChatProps) {
                   }
                 }
               }}
-              className="pr-10"
+              className="pr-10 h-11"
               disabled={!isFullyConnected || isSending}
             />
             
