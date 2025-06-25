@@ -27,7 +27,7 @@ export function SystemMessage({ message, timestamp, type = 'info', className }: 
   if (!show) return null;
     return (
     <div className="w-full flex justify-center my-2 px-2 sm:px-4">
-      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 text-xs sm:text-sm text-muted-foreground">
+      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs system-message">
         <span>{message}</span>
       </div>
     </div>

@@ -15,10 +15,11 @@ interface Message {
   id: string;
   message: string;
   format?: MessageFormat;
-  sender: {
+  sender?: {
     id: string;
     name: string;
     role?: string;
+    image?: string;
   };
   timestamp: string;
   reactions?: Record<string, string[]>; // emoji -> [userId1, userId2, ...]
@@ -29,6 +30,45 @@ export function useChat(roomId: string) {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // Function to load message history from database
+  const loadMessageHistory = async () => {
+    if (!session?.user?.id || isLoadingHistory) {
+      console.log(`[Chat] Skipping message history load - no valid session or already loading`);
+      return;
+    }
+    
+    setIsLoadingHistory(true);
+    try {
+      console.log(`[Chat] Loading message history for room ${roomId}`);
+      const response = await fetch(`/api/chat/${roomId}?limit=50`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.messages && Array.isArray(data.messages)) {
+          console.log(`[Chat] Loaded ${data.messages.length} messages from database for room ${roomId}`);
+          setMessages(data.messages);
+        } else {
+          console.log(`[Chat] No messages found for room ${roomId}`);
+          setMessages([]);
+        }
+      } else if (response.status === 401) {
+        console.error(`[Chat] Authentication failed when loading message history. Please log in again.`);
+        // Don't show error to user immediately - they might not be logged in yet
+        setMessages([]);
+      } else {
+        console.error(`[Chat] Failed to load message history: ${response.status} ${response.statusText}`);
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error(`[Chat] Error loading message history:`, error);
+      setMessages([]);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
   useEffect(() => {
     if (!socket) {
       setIsConnected(false);
@@ -56,42 +96,66 @@ export function useChat(roomId: string) {
       // Handle room join confirmation and load messages
     socket.on('room_joined', (data: { roomId: string, messages: Message[] }) => {
       console.log(`[Chat] Successfully joined room ${roomId}`, data);
-      if (data.roomId === roomId && data.messages) {
-        setMessages(data.messages);
+      if (data.roomId === roomId) {
+        // Load message history from database instead of relying on socket data
+        loadMessageHistory();
       }
     });    // Handle messages
     socket.on('new_message', (message: Message) => {
       console.log(`[Chat] Received new message in room ${roomId}:`, message);
       
+      // Check if message.sender exists before accessing properties
+      if (!message.sender || !message.sender.id || message.sender.id === 'undefined' || message.sender.id === 'null') {
+        console.error(`[Chat] Received message with undefined sender in room ${roomId}:`, message);
+        // Don't skip - create a minimal sender object so UI can still display the message
+        message.sender = {
+          id: 'unknown',
+          name: 'Unknown User'
+        };
+      }
+      
+      // Also validate sender name
+      if (!message.sender.name || message.sender.name === 'undefined' || message.sender.name === 'null') {
+        console.error(`[Chat] Received message with undefined sender name in room ${roomId}:`, message);
+        message.sender.name = message.sender.id === 'unknown' ? 'Unknown User' : `User ${message.sender.id.slice(0, 8)}`;
+      }
+      
       // Diagnostics to help troubleshoot message display issues
-      console.log(`[Chat] Current user ID: ${session?.user?.id}, Message sender ID: ${message.sender.id}`);
+      console.log(`[Chat] Current user ID: ${session?.user?.id || 'Unknown'}, Message sender ID: ${message.sender.id || 'Unknown'}`);
       
       // Play sound for received messages (not from current user)
-      if (message.sender.id !== session?.user?.id) {
+      if (message.sender?.id !== session?.user?.id) {
         ChatSounds.playMessageReceived();
       }
       
       // Dedupe messages by ID in case we get the same message twice
       setMessages((prev) => {
-        // Skip if we already have this message
-        if (prev.some(m => m.id === message.id)) {
+        // Skip if we already have this exact message ID
+        if (!message.id) {
+          console.error('[Chat] Received message without ID:', message);
+          return prev;
+        }
+        
+        const existingMessage = prev.find(m => m.id === message.id);
+        if (existingMessage) {
           console.log(`[Chat] Skipping duplicate message with ID: ${message.id}`);
           return prev;
         }
         
-        // Check if this is a server-confirmed version of a temp message
-        const tempMessageIndex = prev.findIndex(m => 
-          m.id.startsWith('temp-') && 
-          m.message === message.message &&
-          m.sender.id === message.sender.id
-        );
-        
-        if (tempMessageIndex >= 0) {
-          console.log(`[Chat] Replacing temp message with server version: ${message.id}`);
-          // Replace the temp message with the confirmed one
-          const newMessages = [...prev];
-          newMessages[tempMessageIndex] = message;
-          return newMessages;
+        // Don't add messages from the current user that were sent via the API
+        // They should already be in the database and will be loaded via message history
+        if (message.sender?.id === session?.user?.id) {
+          // For messages from current user, only add if it's not already in history
+          const userMessageExists = prev.find(m => 
+            m.message === message.message && 
+            m.sender?.id === session?.user?.id &&
+            Math.abs(new Date(m.timestamp).getTime() - new Date(message.timestamp).getTime()) < 5000 // Within 5 seconds
+          );
+          
+          if (userMessageExists) {
+            console.log(`[Chat] Skipping duplicate message from current user: ${message.id}`);
+            return prev;
+          }
         }
         
         // Otherwise add as a new message
@@ -165,7 +229,7 @@ export function useChat(roomId: string) {
       socket.off('reaction_removed');
       setIsConnected(false);
     };
-  }, [socket, roomId]);  const sendMessage = async (message: string) => {
+  }, [socket, roomId, session?.user?.id]);  const sendMessage = async (message: string) => {
     if (!socket || !session?.user) {
       throw new Error('Cannot send message: Not connected');
     }
@@ -173,48 +237,71 @@ export function useChat(roomId: string) {
     // Parse formatting
     const format = parseMessageFormatting(message);
 
-    const newMessage: Message = {
-      id: `temp-${Date.now()}`, // Temporary ID until server confirms
-      message,
-      format,
-      sender: {
-        id: session.user.id,
-        name: session.user.name || 'Anonymous',
-        role: session.user.role || 'USER',
-      },
-      timestamp: new Date().toISOString(),
-    };
-
-    // Optimistically add message to state
-    setMessages(prev => [...prev, newMessage]);// Send message and wait for acknowledgment
-    return new Promise<void>((resolve, reject) => {
-      try {        const payload = {
-          roomId,
+    try {
+      // First, save message to database
+      const response = await fetch(`/api/chat/${roomId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           message,
           format,
-          sender: newMessage.sender,
-        };
-        
-        // Set a timeout in case the callback never fires
+          type: 'TEXT'
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        }
+        throw new Error(`Failed to save message to database: ${response.status} ${response.statusText}`);
+      }
+
+      const { message: savedMessage } = await response.json();
+
+      // Then broadcast via socket (the message will come back via socket with the real ID)
+      const payload = {
+        roomId,
+        message,
+        format,
+        senderId: session.user.id,
+        senderName: session.user.name || 'Anonymous',
+        senderRole: session.user.role || 'USER',
+        senderImage: session.user.image || undefined,
+        messageId: savedMessage.id, // Use the database ID
+        timestamp: savedMessage.timestamp
+      };
+
+      console.log('[Chat] Sending message with payload:', payload);
+
+      return new Promise<void>((resolve, reject) => {
         const timeoutId = setTimeout(() => {
           console.warn('[Chat] Send message acknowledgment timed out');
           resolve(); // Resolve anyway to prevent UI from being stuck
-        }, 5000);        socket.emit('send_message', payload, (response: any) => {
+        }, 5000);
+
+        try {
+          socket.emit('send_message', payload, (response: any) => {
+            clearTimeout(timeoutId);
+            
+            if (response && response.success === false) {
+              reject(response);
+            } else {
+              // Play sound for sent message
+              ChatSounds.playMessageSent();
+              resolve();
+            }
+          });
+        } catch (err) {
           clearTimeout(timeoutId);
-          
-          if (response && response.success === false) {
-            // Remove the temporary message if there was an error
-            setMessages(prev => prev.filter(m => m.id !== newMessage.id));
-            reject(response);
-          } else {
-            // Play sound for sent message
-            ChatSounds.playMessageSent();
-            resolve();
-          }
-        });} catch (err) {
-        reject(err);
-      }
-    });
+          reject(err);
+        }
+      });
+    } catch (error) {
+      console.error('[Chat] Error sending message:', error);
+      throw error;
+    }
   };
 
   // Helper function to parse message formatting
@@ -290,30 +377,70 @@ export function useChat(roomId: string) {
     return hasFormatting ? format : undefined;
   };
 
-  const addReaction = (messageId: string, emoji: string) => {
+  const addReaction = async (messageId: string, emoji: string) => {
     if (!socket || !session?.user) {
       return;
     }
     
-    socket.emit('add_reaction', {
-      roomId,
-      messageId,
-      emoji,
-      userId: session.user.id
-    });
+    try {
+      // Save to database first
+      const response = await fetch(`/api/chat/${roomId}/reactions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messageId,
+          emoji,
+          action: 'add'
+        }),
+      });
+
+      if (response.ok) {
+        // Then emit via socket for real-time updates
+        socket.emit('add_reaction', {
+          roomId,
+          messageId,
+          emoji,
+          userId: session.user.id
+        });
+      }
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+    }
   };
 
-  const removeReaction = (messageId: string, emoji: string) => {
+  const removeReaction = async (messageId: string, emoji: string) => {
     if (!socket || !session?.user) {
       return;
     }
     
-    socket.emit('remove_reaction', {
-      roomId,
-      messageId,
-      emoji,
-      userId: session.user.id
-    });
+    try {
+      // Save to database first
+      const response = await fetch(`/api/chat/${roomId}/reactions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messageId,
+          emoji,
+          action: 'remove'
+        }),
+      });
+
+      if (response.ok) {
+        // Then emit via socket for real-time updates
+        socket.emit('remove_reaction', {
+          roomId,
+          messageId,
+          emoji,
+          userId: session.user.id
+        });
+      }
+    } catch (error) {
+      console.error('Error removing reaction:', error);
+    }
   };
   return {
     messages,
@@ -321,6 +448,7 @@ export function useChat(roomId: string) {
     addReaction,
     removeReaction,
     isConnected,
+    isLoadingHistory,
     socket,
   };
 }

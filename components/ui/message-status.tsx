@@ -14,29 +14,29 @@ export function MessageStatus({ status, timestamp, className }: MessageStatusPro
       case 'sending':
         return (
           <>
-            <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
-            <span>Sending{timestamp ? ` • ${formatTime(timestamp)}` : '...'}</span>
+            <Loader2 className="h-3 w-3 inline animate-spin mr-1 text-white" />
+            <span className="text-white/80">Sending{timestamp ? ` • ${formatTime(timestamp)}` : '...'}</span>
           </>
         );
       case 'sent':
         return (
           <>
-            <Check className="h-3 w-3 inline mr-1" />
-            <span>Sent{timestamp ? ` • ${formatTime(timestamp)}` : ''}</span>
+            <Check className="h-3 w-3 inline mr-1 text-white" />
+            <span className="text-white/80">Sent{timestamp ? ` • ${formatTime(timestamp)}` : ''}</span>
           </>
         );
       case 'delivered':
         return (
           <>
-            <CheckCheck className="h-3 w-3 inline mr-1 text-green-500" />
-            <span>Delivered{timestamp ? ` • ${formatTime(timestamp)}` : ''}</span>
+            <CheckCheck className="h-3 w-3 inline mr-1 text-green-400" />
+            <span className="text-white/80">Delivered{timestamp ? ` • ${formatTime(timestamp)}` : ''}</span>
           </>
         );
       case 'failed':
         return (
           <>
-            <AlertCircle className="h-3 w-3 inline mr-1 text-destructive" />
-            <span>Failed to send{timestamp ? ` • ${formatTime(timestamp)}` : ''}</span>
+            <AlertCircle className="h-3 w-3 inline mr-1 text-red-400" />
+            <span className="text-white/80">Failed to send{timestamp ? ` • ${formatTime(timestamp)}` : ''}</span>
           </>
         );
       default:
@@ -61,8 +61,8 @@ export function MessageStatus({ status, timestamp, className }: MessageStatusPro
   };
 
   return (
-    <div className={cn("flex justify-end items-center gap-1 mt-1", className)}>
-      <span className="text-[10px] sm:text-xs text-muted-foreground/75">
+    <div className={cn("flex justify-end items-center gap-1 mt-1 message-time", className)}>
+      <span className="text-[10px] sm:text-xs">
         {getStatusContent()}
       </span>
     </div>

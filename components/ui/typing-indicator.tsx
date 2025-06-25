@@ -45,30 +45,34 @@ export function TypingIndicator({ users, currentUserId, className }: TypingIndic
   };
 
   return (
-    <div className={cn(
-      'flex items-center gap-3 p-3 rounded-lg bg-secondary/30 text-sm text-foreground',
-      'border border-secondary-foreground/10 shadow-sm',
-      'animate-fade-in-up', // Animate typing indicator in
-      'touch:p-4', // Touch-friendly padding
-      className
-    )}>
-      <div className="flex -space-x-2">
-        {typingUsers.slice(0, 3).map((user) => (
-          <UserAvatar
-            key={user.id}
-            user={user}
-            size="sm"
-            className="ring-2 ring-background"
-          />
-        ))}
-      </div>
-      
-      <div className="flex items-center gap-2">
-        <span className="font-medium">{getTypingText()}</span>
-        <div className="flex items-center space-x-1">
-          <div className="w-2 h-2 rounded-full bg-primary animate-typing-dot" />
-          <div className="w-2 h-2 rounded-full bg-primary animate-typing-dot" style={{ animationDelay: '0.2s' }} />
-          <div className="w-2 h-2 rounded-full bg-primary animate-typing-dot" style={{ animationDelay: '0.4s' }} />
+    <div className={cn('flex flex-col items-start gap-1 mb-2', className)}>
+      <div className="typing-indicator">
+        <div className="flex items-center gap-2">
+          {typingUsers.slice(0, 1).map((user) => (
+            <UserAvatar
+              key={user.id}
+              user={user}
+              size="sm"
+              className="ring-1 ring-background"
+            />
+          ))}
+          
+          {typingUsers.length > 0 && (
+            <span className="text-xs text-gray-600 mr-1">
+              {typingUsers.length === 1 
+                ? `${typingUsers[0].name} is typing` 
+                : typingUsers.length === 2 
+                  ? `${typingUsers[0].name} and ${typingUsers[1].name} are typing` 
+                  : `${typingUsers[0].name} and ${typingUsers.length - 1} others are typing`
+              }
+            </span>
+          )}
+          
+          <div className="flex items-center">
+            <div className="typing-dot"></div>
+            <div className="typing-dot"></div>
+            <div className="typing-dot"></div>
+          </div>
         </div>
       </div>
     </div>

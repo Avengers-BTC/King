@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { MessageCircle, X, Volume2, Music, Headphones, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { useSocket } from '@/contexts/socket-context';
+import { getDjChatRoomId } from '@/lib/chat-room-utils';
 
 interface LiveChatProps {
   clubId: string;
@@ -23,7 +25,10 @@ export function LiveChat({ clubId, clubName, currentDj }: LiveChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const { data: session } = useSession();
-  const roomId = `club-${clubId}`;
+  const { socket, liveRooms } = useSocket();
+  // Use unified room ID if there's a DJ, otherwise use club room
+  const roomId = currentDj ? getDjChatRoomId(currentDj.id, clubId) : `club-${clubId}`;
+  const isRoomLive = liveRooms.has(roomId) || (currentDj && liveRooms.has(getDjChatRoomId(currentDj.id)));
   const chatRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -103,14 +108,15 @@ export function LiveChat({ clubId, clubName, currentDj }: LiveChatProps) {
                     <Music className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-sm">{clubName}</h3>
-                    <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-sm">{clubName}</h3>                      <div className="flex items-center gap-2">
                       <div className="flex items-center">
                         <span className="relative flex h-2 w-2 mr-1">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                           <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                         </span>
-                        <Badge variant="secondary" className="h-5 text-xs">Live</Badge>
+                        <Badge variant="secondary" className="h-5 text-xs">
+                          {isRoomLive ? 'Live' : 'Chat'}
+                        </Badge>
                       </div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Headphones className="w-3 h-3" />
@@ -152,6 +158,7 @@ export function LiveChat({ clubId, clubName, currentDj }: LiveChatProps) {
                     ? "h-[calc(70vh-64px)]" 
                     : (isExpanded ? "h-[calc(80vh-64px)]" : "h-[500px]")
                 )}
+                isLiveSession={isRoomLive}
               />
             </Card>
           </motion.div>

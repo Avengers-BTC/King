@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Star, MapPin, Users } from 'lucide-react';
+import { Star, MapPin, Users, Radio } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 export interface DJCardProps {
@@ -8,6 +8,7 @@ export interface DJCardProps {
   rating: number;
   fans: number;
   currentClub: string | null;
+  isLive?: boolean;
   user: {
     name: string | null;
     image: string | null;
@@ -15,57 +16,81 @@ export interface DJCardProps {
   };
 }
 
-export function DJCard({ id, genre, rating, fans, currentClub, user }: DJCardProps) {
+export function DJCard({ id, genre, rating, fans, currentClub, isLive = false, user }: DJCardProps) {
+
+  
   return (
-    <Link href={`/djs/${id}`}>
-      <Card className="group hover:shadow-lg transition-shadow duration-300 overflow-hidden bg-app-surface border-border">
-        <CardContent className="p-0">
-          <div className="relative">
-            <img
-              src={user.image || '/default-dj.jpg'}
-              alt={user.name || 'DJ'}
-              className="w-full h-48 object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <div className="absolute bottom-4 left-4 right-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white truncate">
-                  {user.name}
-                </h3>
-                <div className="flex items-center text-yellow-400">
-                  <Star className="h-4 w-4 fill-current" />
-                  <span className="ml-1 text-sm">{rating.toFixed(1)}</span>
+    <div className="group relative">
+      <Link href={`/djs/${id}`} passHref>
+        <Card 
+          className={`
+            group hover:shadow-lg transition-all duration-300 overflow-hidden bg-app-surface border-border
+            ${isLive ? 'ring-2 ring-red-500 shadow-lg shadow-red-500/20 animate-pulse-border' : ''}
+          `}
+        >
+          <CardContent className="p-0">
+            <div className="relative">
+              <img
+                src={user.image || '/default-dj.jpg'}
+                alt={user.name || 'DJ'}
+                className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              
+              {isLive && (
+                <div className="absolute top-4 right-4 live-status-indicator flex items-center space-x-2 bg-red-500/95 px-3 py-1.5 rounded-full shadow-lg backdrop-blur-sm">
+                  <div className="live-status-dot w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                  <span className="text-white font-bold text-sm tracking-wide">LIVE NOW</span>
+                </div>
+              )}
+              
+              {/* Enhanced live session button - now more prominent */}
+              {isLive && (
+                <div 
+                  className="absolute bottom-16 left-4 right-4 flex justify-center animate-fade-in-up" 
+                  onClick={(e) => e.preventDefault()}
+                >
+                  <Link href={`/live/${id}`} className="w-full">
+                    <button 
+                      className="
+                        w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 
+                        text-white py-3 px-6 rounded-lg shadow-xl backdrop-blur-sm
+                        flex items-center justify-center gap-3 transform transition-all duration-300
+                        hover:scale-105 hover:shadow-2xl hover:shadow-red-500/30 font-semibold
+                        border border-white/20
+                      "
+                    >
+                      <Radio className="w-5 h-5 animate-pulse" />
+                      <span className="text-base">Join Live Session</span>
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    </button>
+                  </Link>
+                </div>
+              )}
+
+              <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                <h3 className="text-xl font-semibold mb-1">{user.name || 'Unnamed DJ'}</h3>
+                <div className="flex items-center gap-4 text-sm opacity-90">
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    <span>{user.location || 'Unknown Location'}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    <span>{fans} fans</span>
+                  </div>
+                  {isLive && (
+                    <div className="flex items-center gap-1 bg-red-500/20 px-2 py-1 rounded-md">
+                      <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                      <span className="text-red-200 font-medium">LIVE</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
-          
-          <div className="p-4">
-            <div className="flex items-center text-app-text/70 mb-2">
-              <MapPin className="h-4 w-4 mr-1" />
-              <span className="text-sm truncate">{user.location || 'Location not specified'}</span>
-            </div>
-            
-            <div className="flex items-center justify-between text-app-text/70">
-              <div className="flex items-center">
-                <Users className="h-4 w-4 mr-1" />
-                <span className="text-sm">{fans.toLocaleString()} fans</span>
-              </div>
-              <span className="text-sm font-medium text-electric-pink">
-                {genre}
-              </span>
-            </div>
-            
-            {currentClub && (
-              <div className="mt-3 pt-3 border-t border-border">
-                <p className="text-sm text-app-text/70">
-                  Currently at: <span className="text-neon-cyan">{currentClub}</span>
-                </p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
+          </CardContent>
+        </Card>
+      </Link>
+    </div>
   );
 }

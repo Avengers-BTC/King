@@ -16,6 +16,7 @@ import { GlowMessage } from '@/components/ui/glow-message';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { TypingIndicator } from '@/components/ui/typing-indicator';
 import { MessageStatus } from '@/components/ui/message-status';
+import { ChatThemeSwitcher } from '@/components/ui/chat-theme-switcher';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +51,7 @@ interface ChatHookResult {
   addReaction: (messageId: string, emoji: string) => void;
   removeReaction: (messageId: string, emoji: string) => void;
   isConnected: boolean;
+  isLoadingHistory: boolean;
 }
 
 interface ChatRoomHookResult {
@@ -85,7 +87,7 @@ interface MessageReactions {
 }
 
 interface Message {
-  id?: string;
+  id: string;
   message: string;
   sender?: {
     id: string;
@@ -103,12 +105,14 @@ interface Message {
 interface ChatProps {
   roomId: string;
   className?: string;
+  disableReactions?: boolean;
+  isLiveSession?: boolean;
 }
 
-export function Chat({ roomId }: ChatProps) {
+export function Chat({ roomId, isLiveSession = false }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const { sendMessage, addReaction, removeReaction, isConnected: chatConnected } = useChat(roomId);
-  const { socket } = useSocket();
+  const { sendMessage, addReaction, removeReaction, isConnected: chatConnected, messages: hookMessages, isLoadingHistory } = useChat(roomId);
+  const { socket, djLiveStatus } = useSocket();
   const { userCount, isConnected: roomConnected, typingUsers, onlineUsers, isDJ, mutedUsers, muteUser, unmuteUser, resetRoomCount } = useChatRoom(roomId);  
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -123,6 +127,37 @@ export function Chat({ roomId }: ChatProps) {
 
   // Calculate connection state
   const isFullyConnected = socket?.connected && chatConnected && roomConnected;
+
+  // Keep messages in sync with the hook
+  useEffect(() => {
+    if (hookMessages && hookMessages.length > 0) {
+      console.log(`[Chat] Syncing ${hookMessages.length} messages from hook`);
+      // Map the hookMessages to the component's Message type format
+      // Don't add status field for messages that already have one
+      const mappedMessages = hookMessages.map(msg => ({
+        id: msg.id,
+        message: msg.message,
+        // Ensure sender is always defined to prevent undefined sender issues
+        sender: msg.sender || {
+          id: 'system',
+          name: 'System',
+          role: 'system',
+          image: '/images/system-avatar.png'
+        },
+        timestamp: msg.timestamp,
+        format: msg.format ? {
+          bold: !!msg.format.bold,
+          italic: !!msg.format.italic,
+          code: !!msg.format.code,
+          link: !!msg.format.link
+        } : undefined,
+        reactions: msg.reactions,
+        // Only add status if the message is a temporary one or has a status already
+        status: (msg as any).status || (msg.id.startsWith('temp-') ? 'sending' : 'sent')
+      }));
+      setMessages(mappedMessages);
+    }
+  }, [hookMessages]);
 
   // Log connection state changes
   useEffect(() => {
@@ -158,9 +193,9 @@ export function Chat({ roomId }: ChatProps) {
         console.log(`[Chat] Successfully joined room ${roomId}`);
         
         // If we're a DJ, send live status
-        if (session?.user?.role === 'DJ') {
+        if (session?.user?.role === 'DJ' && isLiveSession) {
           console.log(`[Chat] Room ${roomId}: Sending DJ live status`);
-          socket.emit('dj_live', { roomId, isLive: true });
+          djLiveStatus(roomId, true);
         }
       }
     };
@@ -337,11 +372,21 @@ export function Chat({ roomId }: ChatProps) {
     }, 10);
   };
   const updateMessageStatus = (messageId: string, newStatus: 'sending' | 'sent' | 'delivered' | 'failed') => {
-    setMessages(prev => prev.map(msg => 
-      msg.id === messageId 
-        ? { ...msg, status: newStatus }
-        : msg
-    ));
+    console.log(`[Chat] Updating message status for ${messageId} to ${newStatus}`);
+    // Only update messages that come from the hook, don't manipulate the state directly
+    // This will help with syncing and prevent duplication
+    setMessages(prev => {
+      const messageExists = prev.some(msg => msg.id === messageId);
+      if (!messageExists) {
+        console.log(`[Chat] Message ${messageId} not found, skipping status update`);
+        return prev;
+      }
+      return prev.map(msg => 
+        msg.id === messageId 
+          ? { ...msg, status: newStatus }
+          : msg
+      );
+    });
   };
   // Message sending handler
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -354,36 +399,17 @@ export function Chat({ roomId }: ChatProps) {
       const messageToSend = newMessage.trim();
       setIsSending(true);
       
-      // Create a temporary message ID
-      const tempId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Add message to local state immediately with 'sending' status
-      const tempMessage: Message = {
-        id: tempId,
-        message: messageToSend,
-        sender: {
-          id: session.user.id,
-          name: session.user.name || 'Unknown User',
-          role: session.user.role,
-          image: session.user.image || undefined
-        },
-        timestamp: new Date().toISOString(),
-        status: 'sending'
-      };
-      
       // Clear the input field right away for better UX
       setNewMessage('');
       
-      // Add message to local state
-      setMessages(prev => [...prev, tempMessage]);
+      // Don't create a temp message here - the hook will handle it
       
       // Clear typing indicator immediately when message is sent
       if (isTyping) {
         setIsTyping(false);
         socket.emit('typing_end', roomId);
       }
-      
-      // Send the message with a timeout
+        // Send the message with a timeout
       const messagePromise = sendMessage(messageToSend);
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
@@ -393,10 +419,11 @@ export function Chat({ roomId }: ChatProps) {
       
       try {
         await Promise.race([messagePromise, timeoutPromise]);
-        updateMessageStatus(tempId, 'sent');
+        console.log(`[Chat] Message sent successfully: ${messageToSend}`);
+        // No need to update status here - the hook will handle it
       } catch (error) {
-        console.warn('[Chat] Message sending failed:', error);
-        updateMessageStatus(tempId, 'failed');
+        console.error('[Chat] Message sending failed:', error);
+        toast.error('Failed to send message. Please try again.');
       }
       
       // Focus input after sending
@@ -462,13 +489,13 @@ export function Chat({ roomId }: ChatProps) {
     }
     
     return (
-      <div className="flex flex-wrap gap-1 mt-1">
+      <div className="flex flex-wrap gap-1 mt-2 mb-1">
         {Object.entries(msg.reactions).map(([emoji, userIds]) => (
           <Badge 
             key={emoji}
             variant="outline" 
             className={cn(
-              "px-1.5 py-0.5 cursor-pointer hover:bg-primary/10",
+              "px-1.5 py-0.5 cursor-pointer hover:bg-primary/10 transition-colors",
               userIds.includes(session?.user?.id as string) && "bg-primary/20"
             )}
             onClick={() => {
@@ -490,7 +517,7 @@ export function Chat({ roomId }: ChatProps) {
   // Format message content
   const renderFormattedMessage = (msg: Message) => {
     if (!msg.format) {
-      return <div className="mt-1 break-words">{msg.message}</div>;
+      return <div className="chat-message-content break-words">{msg.message}</div>;
     }
     
     // Create a copy of the message to modify
@@ -521,13 +548,47 @@ export function Chat({ roomId }: ChatProps) {
     // Use dangerouslySetInnerHTML because we've sanitized the content ourselves
     return (
       <div 
-        className="mt-1 break-words" 
+        className="chat-message-content break-words" 
         dangerouslySetInnerHTML={{ __html: formattedText }}
       />
     );
-  };  return (
-    <Card className="flex flex-col h-[calc(100vh-2rem)]">
-      {/* Connection status */}
+  };  
+
+  // Only allow authenticated users to use chat
+  if (!session || !session.user) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 h-full border rounded-lg bg-muted/10">
+        <UserCheck className="w-12 h-12 mb-2 text-muted-foreground" />
+        <p className="text-center text-muted-foreground">
+          You need to be signed in to join the chat
+        </p>
+        <Button 
+          className="mt-4" 
+          onClick={() => window.location.href = '/login'}
+        >
+          Sign In
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Card className="flex flex-col h-[calc(100vh-2rem)] bg-[var(--chat-background)]">
+      {/* Connection status and chat controls */}
+      <div className="flex items-center justify-between px-4 py-2 border-b">
+        <h3 className="text-sm font-medium">Chat Room: {roomId}</h3>
+        
+        {/* Add theme switcher */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{userCount} online</span>
+          {/* Import the ChatThemeSwitcher component */}
+          {React.createElement(
+            require('@/components/ui/chat-theme-switcher').ChatThemeSwitcher,
+            { className: "ml-2" }
+          )}
+        </div>
+      </div>
+      
       {!isFullyConnected && (
         <div className="p-2 bg-yellow-500/10 text-yellow-600 text-sm flex items-center justify-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -537,40 +598,56 @@ export function Chat({ roomId }: ChatProps) {
 
       {/* Chat messages area - with padding-bottom to ensure messages aren't hidden behind input */}
       <div className="flex-1 overflow-y-auto p-4 pb-2 space-y-4" ref={scrollRef}>
+        {isLoadingHistory && (
+          <div className="flex items-center justify-center p-4">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <span className="text-sm text-muted-foreground">Loading chat history...</span>
+          </div>
+        )}
         {messages.map((msg, index) => (
           <div key={msg.id ?? index} className="flex flex-col">
             {msg.type === 'system' ? (
               <SystemMessage message={msg.message} timestamp={msg.timestamp} />
             ) : (
               <div className="chat-message group">
-                {/* Sender info and actions */}
-                <div className="flex items-start justify-between gap-2">
-                  {msg.sender && (
-                    <div 
-                      className="chat-message-sender"
-                      data-user-index={parseInt(msg.sender.id.slice(-1), 16) % 6}
-                    >
-                      {msg.sender.name}
+                {/* Message bubble with sender info, content, reactions, and status */}
+                <div 
+                  className={cn(
+                    "chat-bubble chat-bubble-glow",
+                    msg.sender?.id === session?.user?.id 
+                      ? "chat-bubble-outgoing" 
+                      : "chat-bubble-incoming"
+                  )}
+                >
+                  {/* Sender info and actions */}
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    {msg.sender && msg.sender?.id !== session?.user?.id && (
+                      <div 
+                        className="chat-message-sender"
+                        data-user-index={msg.sender.id && msg.sender.id !== 'unknown' ? (parseInt(msg.sender.id.slice(-1), 16) % 6) : 0}
+                      >
+                        {msg.sender.name || 'Unknown User'}
+                      </div>
+                    )}
+                    {renderMessageActions(msg)}
+                  </div>
+
+                  {/* Message content */}
+                  {renderFormattedMessage(msg)}
+
+                  {/* Message reactions */}
+                  {renderReactions(msg)}
+
+                  {/* Message status */}
+                  {msg.status && (
+                    <div className="text-xs opacity-70 mt-1 text-right">
+                      <MessageStatus 
+                        status={msg.status} 
+                        timestamp={msg.timestamp}
+                      />
                     </div>
                   )}
-                  {renderMessageActions(msg)}
                 </div>
-
-                {/* Message content */}
-                {renderFormattedMessage(msg)}
-
-                {/* Message reactions */}
-                {renderReactions(msg)}
-
-                {/* Message status */}
-                {msg.status && (
-                  <div className="text-xs opacity-70 mt-1">
-                    <MessageStatus 
-                      status={msg.status} 
-                      timestamp={msg.timestamp}
-                    />
-                  </div>
-                )}
               </div>
             )}
           </div>

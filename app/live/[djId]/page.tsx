@@ -25,6 +25,10 @@ export default function LiveSessionPage() {
   const [activeClub, setActiveClub] = useState<string | null>(null);
   const [showChat, setShowChat] = useState(true);
   const [listeners, setListeners] = useState(0);
+  
+  // State for user following status - MOVED TO TOP
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followingLoading, setFollowingLoading] = useState(false);
 
   // Fetch DJ data
   useEffect(() => {
@@ -60,6 +64,25 @@ export default function LiveSessionPage() {
     }
   }, [isLoading, djData, isDjLive, djId, router]);
 
+  // Check following status for logged in users
+  useEffect(() => {
+    const checkFollowingStatus = async () => {
+      if (session?.user?.role === 'USER' && djId) {
+        try {
+          const response = await fetch(`/api/djs/${djId}/following`);
+          if (response.ok) {
+            const data = await response.json();
+            setIsFollowing(data.isFollowing);
+          }
+        } catch (error) {
+          console.error('Error checking following status:', error);
+        }
+      }
+    };
+
+    checkFollowingStatus();
+  }, [session, djId]);
+
   // Require authentication
   if (status === 'loading') {
     return (
@@ -69,6 +92,30 @@ export default function LiveSessionPage() {
     );
   }
 
+  // Handle follow/unfollow
+  const handleFollowToggle = async () => {
+    if (!session?.user || session.user.role !== 'USER') return;
+    
+    setFollowingLoading(true);
+    try {
+      const method = isFollowing ? 'DELETE' : 'POST';
+      const response = await fetch(`/api/djs/${djId}/follow`, { method });
+      
+      if (response.ok) {
+        setIsFollowing(!isFollowing);
+        toast.success(isFollowing ? 'Unfollowed DJ' : 'Following DJ');
+      } else {
+        throw new Error('Failed to update following status');
+      }
+    } catch (error) {
+      console.error('Error updating following status:', error);
+      toast.error('Failed to update following status');
+    } finally {
+      setFollowingLoading(false);
+    }
+  };
+
+  // Allow non-authenticated users to view but not participate
   if (!session) {
     return (
       <div className="min-h-screen bg-app-bg">
@@ -76,13 +123,51 @@ export default function LiveSessionPage() {
         <div className="container max-w-4xl mx-auto py-12 px-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl text-center">Sign In Required</CardTitle>
+              <CardTitle className="text-xl text-center flex items-center justify-center gap-2">
+                <Radio className="w-6 h-6 text-red-500" />
+                Live Session Preview
+              </CardTitle>
             </CardHeader>
             <CardContent className="text-center">
-              <p className="mb-6">You need to be signed in to join a live session.</p>
-              <Button onClick={() => router.push('/login?callbackUrl=' + encodeURIComponent(`/live/${djId}`))}>
-                Sign In
-              </Button>
+              {djData && (
+                <div className="mb-6">
+                  <img 
+                    src={djData.user?.image || '/default-dj.jpg'} 
+                    alt={djData.user?.name || 'DJ'} 
+                    className="w-20 h-20 rounded-full mx-auto mb-4 object-cover"
+                  />
+                  <h3 className="text-lg font-semibold mb-2">{djData.user?.name}</h3>
+                  <div className="flex items-center justify-center gap-2 mb-4">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm text-red-500 font-medium">LIVE NOW</span>
+                  </div>
+                  <p className="text-muted-foreground mb-6">
+                    {djData.user?.name} is currently live! Sign in to join the session and chat with other fans.
+                  </p>
+                </div>
+              )}
+              <div className="space-y-3">
+                <Button 
+                  className="w-full" 
+                  onClick={() => router.push('/login?callbackUrl=' + encodeURIComponent(`/live/${djId}`))}
+                >
+                  Sign In to Join Live Session
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full" 
+                  onClick={() => router.push('/signup')}
+                >
+                  Create Account
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="w-full" 
+                  onClick={() => router.push('/djs')}
+                >
+                  Browse All DJs
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -158,13 +243,48 @@ export default function LiveSessionPage() {
                   </Badge>
                   
                   <div className="flex items-center gap-2">
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500">
-                      <Heart className="w-4 h-4" />
-                    </Button>
+                    {/* Show follow button only for fans, not DJs or club owners */}
+                    {session?.user?.role === 'USER' && djId !== session?.user?.id && (
+                      <Button 
+                        size="sm" 
+                        variant={isFollowing ? "default" : "outline"}
+                        className={`h-8 ${isFollowing ? 'bg-red-500 hover:bg-red-600 text-white' : ''}`}
+                        onClick={handleFollowToggle}
+                        disabled={followingLoading}
+                      >
+                        <Heart className={`w-4 h-4 mr-1 ${isFollowing ? 'fill-current' : ''}`} />
+                        {followingLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
+                      </Button>
+                    )}
                     <Button size="icon" variant="ghost" className="h-8 w-8">
                       <Share2 className="w-4 h-4" />
                     </Button>
                   </div>
+                </div>
+                
+                {/* Show user status */}
+                <div className="mb-4">
+                  {session?.user?.role === 'USER' && djId !== session?.user?.id && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground bg-app-surface/50 p-2 rounded-md">
+                      {isFollowing ? (
+                        <>
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span>🔔 You'll get notifications when this DJ goes live</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                          <span>Follow to get notified when this DJ goes live</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {session?.user?.id === djId && (
+                    <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-2 rounded-md">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span>🎵 This is your live session</span>
+                    </div>
+                  )}
                 </div>
                 
                 {activeClub && (

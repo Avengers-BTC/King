@@ -182,10 +182,18 @@ io.on('connection', (socket) => {
   console.log(`[Socket.IO] User authenticated: ${userId}`);
   
   // Store user information if provided in the auth
+  socket.data = socket.data || {};
   if (auth.userData) {
-    socket.data = socket.data || {};
     socket.data.user = auth.userData;
     console.log(`[Socket.IO] User data received during auth for ${socket.id}:`, socket.data.user);
+  } else {
+    // Create minimal user data if not provided
+    socket.data.user = {
+      id: userId,
+      name: `User ${userId.slice(0, 8)}`,
+      role: 'USER'
+    };
+    console.log(`[Socket.IO] Created minimal user data for ${socket.id}:`, socket.data.user);
   }
   
   userSockets.set(userId, socket.id);
@@ -202,10 +210,16 @@ io.on('connection', (socket) => {
     }
     rooms.get(roomId).add(userId);
     
-    // Send room joined confirmation to the user
+    // Log room membership
+    const roomMembers = Array.from(rooms.get(roomId));
+    console.log(`[Socket.IO] Room ${roomId} now has ${roomMembers.length} members: ${roomMembers.join(', ')}`);
+    
+    // Send room joined confirmation to the user with message history
+    // In a real implementation, you would fetch message history from database here
+    // For now, we'll let the frontend handle loading message history via API
     socket.emit('room_joined', { 
       roomId,
-      messages: [] // This would be replaced with actual message history in a real implementation
+      messages: [] // Frontend will load history via API call
     });
     
     // Get user information from authentication data
@@ -254,30 +268,51 @@ io.on('connection', (socket) => {
     socket.emit('room_resynced', { roomId, timestamp: new Date().toISOString() });
   });  // Handle chat messages
   socket.on('send_message', (data, callback) => {
-    const { roomId, message, sender } = data;
+    const { roomId, message, senderId, senderName, senderRole, senderImage, format, messageId, timestamp } = data;
     
     if (!roomId || !message) {
       if (callback) callback({ error: 'Invalid message data' });
       return;
     }
     
-    console.log(`[Socket.IO] Message in room ${roomId} from ${sender?.name || sender?.id}: ${message.substring(0, 50)}`);
-    
-    // Create a unique message ID
-    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Ensure the message is broadcast to ALL clients including the sender
-    // This is critical for ensuring everyone sees all messages
-    const messageData = {
-      id: messageId,
-      message,
-      sender,
-      format: data.format,
-      timestamp: new Date().toISOString()
+    // Create a proper sender object from the individual fields
+    const sender = {
+      id: senderId || userId,
+      name: senderName || socket.data?.user?.name || `User ${userId.slice(0, 8)}`,
+      role: senderRole || socket.data?.user?.role || 'USER',
+      image: senderImage || socket.data?.user?.image
     };
     
+    // Validate sender data
+    if (!sender.id || sender.id === 'undefined' || sender.id === 'null') {
+      console.error(`[Socket.IO] Invalid sender ID for message in room ${roomId}:`, data);
+      sender.id = userId; // Fallback to socket user ID
+    }
+    
+    if (!sender.name || sender.name === 'undefined' || sender.name === 'null') {
+      console.error(`[Socket.IO] Invalid sender name for message in room ${roomId}:`, data);
+      sender.name = socket.data?.user?.name || `User ${userId.slice(0, 8)}`;
+    }
+    
+    console.log(`[Socket.IO] Message in room ${roomId} from ${sender.name} (${sender.id}): ${message.substring(0, 50)}`);
+    console.log(`[Socket.IO] Full sender object:`, sender);
+    
+    // Use the provided messageId from database or create a fallback ID
+    const finalMessageId = messageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Ensure the message is broadcast to ALL clients in the room
+    const messageData = {
+      id: finalMessageId,
+      message,
+      sender,
+      format,
+      timestamp: timestamp || new Date().toISOString()
+    };
+    
+    console.log(`[Socket.IO] Broadcasting message data:`, messageData);
+    
     try {
-      // Explicitly broadcast to all sockets in the room including the sender
+      // Broadcast to all sockets in the room
       io.in(roomId).emit('new_message', messageData);
       
       // Log message delivery
@@ -285,7 +320,7 @@ io.on('connection', (socket) => {
       console.log(`[Socket.IO] Broadcasted message to ${roomSize} clients in room ${roomId}`);
       
       // Acknowledge message receipt
-      if (callback) callback({ success: true, messageId });
+      if (callback) callback({ success: true, messageId: finalMessageId });
     } catch (error) {
       console.error(`[Socket.IO] Error broadcasting message to room ${roomId}:`, error);
       if (callback) callback({ error: 'Failed to broadcast message' });
@@ -365,18 +400,57 @@ io.on('connection', (socket) => {
   });
   
   // Handle DJ activity indicators
-  socket.on('dj_live', (data) => {
-    const { roomId, isLive } = data;
+  socket.on('dj_live', async (data) => {
+    const { roomId, isLive, djId, djName } = data;
     if (!roomId) return;
     
-    // Broadcast DJ status to the room
-    io.to(roomId).emit('dj_status_update', {
-      djId: userId,
+    const actualDjId = djId || userId;
+    const actualDjName = djName || socket.data?.user?.name;
+    
+    console.log(`[Socket.IO] ====== DJ LIVE STATUS CHANGE ======`);
+    console.log(`[Socket.IO] DJ ID: ${actualDjId}`);
+    console.log(`[Socket.IO] DJ Name: ${actualDjName}`);
+    console.log(`[Socket.IO] Room ID: ${roomId}`);
+    console.log(`[Socket.IO] Is Live: ${isLive}`);
+    console.log(`[Socket.IO] Total connected clients: ${io.sockets.sockets.size}`);
+    
+    // Broadcast DJ status to ALL clients
+    const statusUpdate = {
+      djId: actualDjId,
+      djName: actualDjName,
+      roomId,
       isLive,
       timestamp: new Date().toISOString()
-    });
+    };
     
-    console.log(`[Socket.IO] DJ ${userId} is ${isLive ? 'live' : 'offline'} in room ${roomId}`);
+    console.log(`[Socket.IO] Broadcasting to all clients:`, statusUpdate);
+    io.emit('dj_status_update', statusUpdate);
+    
+    // Send follower-specific notifications if DJ goes live
+    if (isLive) {
+      console.log(`[Socket.IO] DJ going live - sending follower notifications`);
+      
+      // Find all connected users who are followers of this DJ
+      const followerNotifications = [];
+      for (const [socketId, connectedSocket] of io.sockets.sockets) {
+        const userData = connectedSocket.data?.user;
+        if (userData && userData.role === 'USER') {
+          // Send follower-specific event (we'll check following status on client side)
+          connectedSocket.emit('dj_live_notification', {
+            djId: actualDjId,
+            djName: actualDjName,
+            roomId,
+            message: `${actualDjName} is now live!`,
+            timestamp: new Date().toISOString()
+          });
+          followerNotifications.push(userData.id);
+        }
+      }
+      
+      console.log(`[Socket.IO] Sent follower notifications to ${followerNotifications.length} users`);
+    }
+    
+    console.log(`[Socket.IO] =====================================`);
   });
   
   // Debug endpoint to check room state

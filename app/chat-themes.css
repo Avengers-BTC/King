@@ -2,10 +2,11 @@
 
 :root {
   --chat-primary: #0ea5e9;
-  --chat-background: #f4f4f5;  /* Light grey background */
-  --chat-accent: #18181b;      /* Dark chat bubbles */
+  --chat-background: #f8fafc;  /* Very light grey/blue background */
+  --chat-outgoing-bubble: #222222; /* Dark bubble color for outgoing messages */
+  --chat-incoming-bubble: #333333; /* Dark bubble color for incoming messages */
   --chat-text: #ffffff;        /* White text for dark bubbles */
-  --username-colors: #9333ea, #f97316, #eab308, #ec4899, #06b6d4, #8b5cf6;
+  --username-colors: #ff9800, #2196f3, #4caf50, #e91e63, #9c27b0, #00bcd4;
 }
 
 body.theme-default {
@@ -43,6 +44,28 @@ body.theme-minimal {
   --chat-text: #1f2937;
 }
 
+/* Additional modern theme options */
+
+/* Dark mode theme - subtle dark background */
+.theme-dark {
+  --chat-background: #111827; /* Dark slate gray */
+  --chat-outgoing-bubble: #1e3a8a; /* Dark blue */
+  --chat-incoming-bubble: #1f2937; /* Darker gray */
+}
+
+/* Soft dark theme - easier on the eyes */
+.theme-soft-dark {
+  --chat-background: #1e293b; /* Slate blue dark */
+  --chat-outgoing-bubble: #0f172a; /* Very dark blue */
+  --chat-incoming-bubble: #334155; /* Slate blue */
+}
+
+/* Modern gradient theme */
+.theme-gradient {
+  --chat-background: #0f172a; /* Dark blue background */
+  --chat-background-gradient: linear-gradient(to bottom right, #0f172a, #1e293b);
+}
+
 /* Mobile-first Chat Layout */
 .chat-container {
   max-height: 100dvh;
@@ -64,68 +87,329 @@ body.theme-minimal {
   margin-bottom: env(safe-area-inset-bottom, 0);
 }
 
+/* WhatsApp style chat bubbles */
 .chat-message {
-  background-color: var(--chat-accent);
-  color: var(--chat-text);
-  border-radius: 1rem;
-  padding: 0.75rem 1rem;
-  max-width: 85%;
-  margin: 0.5rem 0;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-/* Make input more touch-friendly */
-.chat-input-area input {
-  min-height: 44px; /* iOS minimum touch target size */
-  font-size: 16px; /* Prevent iOS zoom on focus */
-  padding: 0.5rem 2.5rem 0.5rem 1rem;
-}
-
-.chat-input-area button {
-  min-height: 44px;
-  min-width: 44px;
+  margin: 8px 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  width: 100%;
 }
 
-/* Ensure emoji picker doesn't overflow on mobile */
-.emoji-picker-container {
-  max-width: min(300px, 90vw);
-  position: fixed;
-  bottom: 100%;
-  right: 1rem;
+.chat-bubble {
+  position: relative;
+  border-radius: 16px;
+  padding: 10px 16px;
+  max-width: 75%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+  word-break: break-word;
 }
 
-.chat-message-own {
-  background-color: var(--chat-primary);
-  color: white;
+.chat-bubble-outgoing {
+  background-color: var(--chat-outgoing-bubble); /* Theme variable for outgoing messages */
+  border-top-right-radius: 4px;
+  margin-left: auto;
+  margin-right: 8px;
+  align-self: flex-end;
+  color: var(--chat-text); /* Theme variable for text color */
 }
 
-.chat-message-other {
-  background-color: var(--chat-accent);
+.chat-bubble-outgoing::after {
+  content: '';
+  position: absolute;
+  right: -8px;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  background: var(--chat-outgoing-bubble); /* Match bubble color */
+  border-bottom-left-radius: 16px;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
 }
 
+.chat-bubble-incoming {
+  background-color: var(--chat-incoming-bubble); /* Theme variable for incoming messages */
+  border-top-left-radius: 4px;
+  margin-right: auto;
+  margin-left: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  align-self: flex-start;
+  color: var(--chat-text); /* Theme variable for text color */
+}
+
+.chat-bubble-incoming::after {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  background: var(--chat-incoming-bubble); /* Match bubble color */
+  border-bottom-right-radius: 16px;
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+}
+
+/* Glow effect for messages */
+.chat-bubble-glow {
+  animation: bubble-glow 2s ease-in-out;
+}
+
+@keyframes bubble-glow {
+  0% {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
+  }
+  100% {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* Message container styles */
+.chat-message-content {
+  word-break: break-word;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: #ffffff; /* Ensure white text in chat bubbles */
+}
+
+/* Chat message sender name styling */
 .chat-message-sender {
   font-weight: 600;
-  margin-bottom: 0.25rem;
+  font-size: 0.8rem;
+  margin-bottom: 2px;
+  /* We'll keep the random colors from data-user-index attribute styling */
 }
 
-.chat-message-sender[data-user-index="0"] { color: #9333ea; }  /* Purple */
-.chat-message-sender[data-user-index="1"] { color: #f97316; }  /* Orange */
-.chat-message-sender[data-user-index="2"] { color: #eab308; }  /* Yellow */
-.chat-message-sender[data-user-index="3"] { color: #ec4899; }  /* Pink */
-.chat-message-sender[data-user-index="4"] { color: #06b6d4; }  /* Cyan */
-.chat-message-sender[data-user-index="5"] { color: #8b5cf6; }  /* Violet */
+/* Random username colors based on user-index */
+.chat-message-sender[data-user-index="0"] { color: #ff9800; }
+.chat-message-sender[data-user-index="1"] { color: #2196f3; }
+.chat-message-sender[data-user-index="2"] { color: #4caf50; }
+.chat-message-sender[data-user-index="3"] { color: #e91e63; }
+.chat-message-sender[data-user-index="4"] { color: #9c27b0; }
+.chat-message-sender[data-user-index="5"] { color: #00bcd4; }
 
-.chat-header {
-  background: linear-gradient(to right, var(--chat-background), var(--chat-accent));
-  border-bottom: 1px solid var(--chat-accent);
+/* Ensure links inside dark bubbles are visible */
+.chat-bubble a {
+  color: #8cd9ff;
+  text-decoration: underline;
 }
 
-.chat-input {
+/* Code formatting in dark bubbles */
+.chat-bubble code {
+  background-color: rgba(255, 255, 255, 0.2);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+/* Message status and timestamp color */
+.message-time, 
+.text-xs.opacity-70 {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* System message styling */
+.system-message {
+  text-align: center;
+  margin: 8px auto;
+  padding: 6px 12px;
+  background-color: #444444;
+  border-radius: 8px;
+  width: fit-content;
+  max-width: 80%;
+  font-size: 0.75rem;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* Time and status styling */
+.message-time {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  margin-top: 2px;
+  display: block;
+  text-align: right;
+}
+
+/* Typing indicator styling */
+.typing-indicator {
+  background-color: var(--chat-incoming-bubble); /* Match incoming bubble color */
+  border-radius: 16px;
+  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  max-width: fit-content;
+  color: var(--chat-text);
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  margin: 0 2px;
+  display: inline-block;
+  animation: typingBounce 1.4s infinite ease-in-out;
+  opacity: 0.7;
+}
+
+.typing-dot:nth-child(1) { animation-delay: 0s; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-5px); }
+}
+
+/* Badge styles for reactions */
+.chat-bubble .badge {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.chat-bubble .badge:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Subtle pattern background */
+.chat-pattern-bg {
   background-color: var(--chat-background);
-  border-top: 1px solid var(--chat-accent);
-  padding: 1rem;
+  background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000000' fill-opacity='0.05' fill-rule='evenodd'%3E%3Ccircle cx='3' cy='3' r='1'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Live status indicator styling */
+.live-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  background-color: rgba(220, 38, 38, 0.2);
+  color: rgb(220, 38, 38);
+  animation: pulse 2s infinite;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 0 10px rgba(220, 38, 38, 0.4);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  z-index: 10;
+}
+
+.live-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: rgb(220, 38, 38);
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(220, 38, 38, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+/* Connection status indicator styles */
+.connection-status {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+.connection-status.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.connection-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.connection-status.connected {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: rgb(16, 185, 129);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.connection-status.connected .connection-status-dot {
+  background-color: rgb(16, 185, 129);
+}
+
+.connection-status.disconnected {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: rgb(239, 68, 68);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.connection-status.disconnected .connection-status-dot {
+  background-color: rgb(239, 68, 68);
+}
+
+.connection-status.connecting {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: rgb(245, 158, 11);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.connection-status.connecting .connection-status-dot {
+  background-color: rgb(245, 158, 11);
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Live Join Button */
+.live-join-button {
+  background-color: rgba(220, 38, 38, 0.9);
+  color: white;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  z-index: 20;
+}
+
+.live-join-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.5);
+  background-color: rgba(220, 38, 38, 1);
+}
+
+.live-join-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
 }

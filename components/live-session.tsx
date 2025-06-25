@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,8 @@ import {
 import { Radio } from 'lucide-react';
 import { Chat } from '@/components/chat';
 import { toast } from 'sonner';
+import { useSocket } from '@/contexts/socket-context';
+import { getDjChatRoomId } from '@/lib/chat-room-utils';
 
 interface LiveSessionProps {
   djId: string;
@@ -25,9 +27,22 @@ interface LiveSessionProps {
 }
 
 export function LiveSession({ djId, djName, clubs = [] }: LiveSessionProps) {
-  const [isLive, setIsLive] = useState(false);
   const [selectedClub, setSelectedClub] = useState<string>('');
   const [showChat, setShowChat] = useState(false);
+  const [currentRoomId, setCurrentRoomId] = useState<string>('');
+  const { socket, djLiveStatus, isDjLive, liveRooms } = useSocket();
+  
+  // Check if DJ is currently live
+  const isLive = isDjLive(djId);
+
+
+
+  // Auto-show chat when DJ goes live
+  useEffect(() => {
+    if (isLive) {
+      setShowChat(true);
+    }
+  }, [isLive]);
 
   const handleGoLive = () => {
     if (!selectedClub) {
@@ -35,14 +50,22 @@ export function LiveSession({ djId, djName, clubs = [] }: LiveSessionProps) {
       return;
     }
 
-    setIsLive(true);
+    const roomId = getDjChatRoomId(djId, selectedClub);
+    setCurrentRoomId(roomId);
+    djLiveStatus(roomId, true, djName, djId);
     setShowChat(true);
     toast.success('You are now live! 🎵');
   };
 
   const handleEndSession = () => {
-    setIsLive(false);
+    if (!currentRoomId) {
+      toast.error('No active session to end');
+      return;
+    }
+
+    djLiveStatus(currentRoomId, false, djName, djId);
     setShowChat(false);
+    setCurrentRoomId('');
     toast.info('Live session ended');
   };
 
@@ -118,8 +141,9 @@ export function LiveSession({ djId, djName, clubs = [] }: LiveSessionProps) {
           </CardHeader>
           <CardContent>
             <Chat
-              roomId={`live-${djId}-${selectedClub}`}
+              roomId={getDjChatRoomId(djId, selectedClub)}
               className="h-[400px] border rounded-lg"
+              isLiveSession={isLive}
             />
           </CardContent>
         </Card>
