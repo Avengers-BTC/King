@@ -185,7 +185,7 @@ export default function MobileChatDemo() {
               <div>
                 <h4 className="font-semibold mb-2">On Mobile:</h4>
                 <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
-                  <li>Click "Join Live Chat" or "Join Club Chat" above</li>
+                  <li>Click &ldquo;Join Live Chat&rdquo; or &ldquo;Join Club Chat&rdquo; above</li>
                   <li>Experience the full-screen WhatsApp-style interface</li>
                   <li>Try sending messages to see auto-scroll in action</li>
                   <li>Test the emoji picker and message reactions</li>

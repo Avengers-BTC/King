@@ -453,7 +453,7 @@ export default function DJDashboard() {
                     <Music className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-white mb-2">Ready to Connect with Your Fans?</h3>
                     <p className="text-gray-400 mb-4">
-                      When you go live, you'll see real-time chat activity here and can interact with your audience directly.
+                      When you go live, you&apos;ll see real-time chat activity here and can interact with your audience directly.
                     </p>
                     <div className="text-sm text-gray-500">
                       💡 <strong>Pro Tip:</strong> Your fans can find and join your live chat from your DJ profile, the main chat list, or when browsing live DJs!
