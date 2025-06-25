@@ -175,7 +175,7 @@ export function Chat({ roomId, isLiveSession = false }: ChatProps) {
         toast.error("Chat disconnected. Attempting to reconnect...");
       }
     }
-  }, [socket?.connected, chatConnected, roomConnected, roomId, isFullyConnected]);
+  }, [socket, chatConnected, roomConnected, roomId, isFullyConnected]);
   useEffect(() => {
     if (!socket || !chatConnected) {
       console.log(`[Chat] Room ${roomId}: Not connected`);
@@ -214,7 +214,7 @@ export function Chat({ roomId, isLiveSession = false }: ChatProps) {
       socket.off('room_joined', handleRoomJoined);
       socket.off('error', handleError);
     };
-  }, [socket, chatConnected, roomId, session?.user?.role, toast]);  // Auto scroll to bottom when new messages arrive
+  }, [socket, chatConnected, roomId, session?.user?.role, djLiveStatus, isLiveSession]);  // Auto scroll to bottom when new messages arrive
   useEffect(() => {
     // Simple scroll to bottom without relying on Radix UI's internals
     if (scrollRef.current) {

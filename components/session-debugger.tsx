@@ -27,7 +27,7 @@ export default function SessionDebugger() {
     }, 10000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [session?.user, status]);
   
   // Separate effect for session/status changes
   useEffect(() => {

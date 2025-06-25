@@ -81,7 +81,7 @@ export default function DJsPage() {
         if (!aIsLive && bIsLive) return 1;
         return b.rating - a.rating;
       });
-  }, [allDJs, searchTerm, selectedGenre, selectedLocation, showOnlyLive, liveRooms, isDjLive]);
+  }, [allDJs, searchTerm, selectedGenre, selectedLocation, showOnlyLive, isDjLive]);
 
   // Get unique genres and locations for filters
   const genres = useMemo(() => {
@@ -96,7 +96,7 @@ export default function DJsPage() {
 
   const liveDJsCount = useMemo(() => {
     return allDJs.filter(dj => isDjLive(dj.id)).length;
-  }, [allDJs, liveRooms, isDjLive]);
+  }, [allDJs, isDjLive]);
 
   return (
     <div className="min-h-screen bg-app-background">

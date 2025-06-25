@@ -43,7 +43,7 @@ export function ConnectionStatus() {
     }, 3000);
     
     return () => clearTimeout(timer);
-  }, []);
+  }, [isConnected]);
 
   const handleClick = () => {
     if (status === 'disconnected') {

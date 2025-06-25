@@ -129,7 +129,7 @@ export default function ClubPage() {
         <div className="container max-w-4xl mx-auto py-8 px-4 text-center">
           <h1 className="text-2xl font-bold mb-4">Club Not Found</h1>
           <p className="text-app-text/70 mb-6">
-            We couldn't find the club you're looking for.
+            We couldn&apos;t find the club you&apos;re looking for.
           </p>
           <GlowButton href="/clubs">
             View All Clubs

@@ -269,7 +269,7 @@ export default function LiveSessionPage() {
                       {isFollowing ? (
                         <>
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span>🔔 You'll get notifications when this DJ goes live</span>
+                          <span>🔔 You&apos;ll get notifications when this DJ goes live</span>
                         </>
                       ) : (
                         <>
@@ -351,7 +351,7 @@ export default function LiveSessionPage() {
                     <Radio className="w-12 h-12 text-red-500 animate-pulse mb-4" />
                     <h3 className="text-xl font-bold mb-2">Live Audio Coming Soon</h3>
                     <p className="text-muted-foreground">
-                      We're working on bringing live audio streams to our platform.
+                      We&apos;re working on bringing live audio streams to our platform.
                       For now, enjoy the chat and interaction with other fans!
                     </p>
                   </div>

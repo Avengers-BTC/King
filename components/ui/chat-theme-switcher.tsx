@@ -128,6 +128,7 @@ export function ChatThemeSwitcher({
       setCurrentTheme(savedTheme);
       applyTheme(savedTheme);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   const applyTheme = (themeValue: ChatTheme) => {

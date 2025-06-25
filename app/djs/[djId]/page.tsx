@@ -228,7 +228,7 @@ export default function DJProfilePage() {
         <div className="container max-w-4xl mx-auto py-8 px-4 text-center">
           <h1 className="text-2xl font-bold mb-4">DJ Not Found</h1>
           <p className="text-app-text/70 mb-6">
-            We couldn't find the DJ you're looking for.
+            We couldn&apos;t find the DJ you&apos;re looking for.
           </p>
           <Button onClick={() => router.push('/djs')}>
             View All DJs

@@ -86,6 +86,7 @@ export default function Home() {
     // Refresh data every minute to keep it current
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Update DJ list when live status changes

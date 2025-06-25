@@ -168,6 +168,7 @@ export default function UploadMomentPage() {
                       </p>
                       <div className="flex justify-center space-x-4 mb-4">
                         <div className="flex items-center space-x-1 text-sm text-app-text/60">
+                          {/* eslint-disable-next-line jsx-a11y/alt-text */}
                           <Image className="h-4 w-4" />
                           <span>JPG, PNG</span>
                         </div>

@@ -67,6 +67,7 @@ export default function DJDashboard() {
     if (user?.id) {
       fetchDJProfile();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isAuthenticated]);
 
   const fetchDJProfile = async () => {
