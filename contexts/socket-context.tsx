@@ -7,11 +7,21 @@ import { useSession } from 'next-auth/react';
 interface SocketContextType {
   socket: Socket | null;
   isConnected: boolean;
+  connectionState: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'failed';
+  liveRooms: Map<string, { djId: string, djName?: string }>;
+  djLiveStatus: (roomId: string, isLive: boolean, djName?: string, djId?: string) => void;
+  isDjLive: (djId: string) => boolean;
+  reconnect: () => void;
 }
 
 const SocketContext = createContext<SocketContextType>({
   socket: null,
-  isConnected: false
+  isConnected: false,
+  connectionState: 'idle',
+  liveRooms: new Map(),
+  djLiveStatus: () => {},
+  isDjLive: () => false,
+  reconnect: () => {}
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -19,6 +29,8 @@ export const useSocket = () => useContext(SocketContext);
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionState, setConnectionState] = useState<'idle' | 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'failed'>('idle');
+  const [liveRooms, setLiveRooms] = useState<Map<string, { djId: string, djName?: string }>>(new Map());
   const { data: session, status } = useSession();
   const healthCheckIntervalRef = useRef<ReturnType<typeof setInterval>>();
   const socketRef = useRef<Socket | null>(null);
@@ -123,10 +135,14 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       });
 
     // Setup event handlers before connecting
+    // Setup connection state changes
+    setConnectionState('connecting');
+    
     socketInstance.on('connect', () => {
       const connectTime = Date.now() - connectStart;
       console.log(`[Socket.IO] Connected in ${connectTime}ms`);
       setIsConnected(true);
+      setConnectionState('connected');
       connectionAttemptsRef.current = 0;
       
       // Initialize heartbeat
@@ -139,6 +155,15 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         role: session.user.role,
         image: session.user.image
       });
+      
+      // Show success toast
+      try {
+        import('sonner').then(({ toast }) => {
+          toast.success('Connected to server');
+        });
+      } catch (e) {
+        console.log('[Socket.IO] Toast not available');
+      }
     });
 
     socketInstance.on('server_ready', (data) => {
@@ -152,6 +177,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     socketInstance.on('disconnect', (reason) => {
       console.log('[Socket.IO] Disconnected:', reason);
       setIsConnected(false);
+      setConnectionState('disconnected');
 
       // If server initiated disconnect, wait before reconnecting
       if (reason === 'io server disconnect') {
@@ -167,6 +193,16 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     socketInstance.on('connect_error', (error) => {
       console.error('[Socket.IO] Connection error:', error.message);
+      setConnectionState('failed');
+      
+      // Show error toast
+      try {
+        import('sonner').then(({ toast }) => {
+          toast.error(`Connection error: ${error.message}`);
+        });
+      } catch (e) {
+        console.log('[Socket.IO] Toast not available');
+      }
       
       // Increment attempts and try reconnecting with backoff
       connectionAttemptsRef.current++;
@@ -213,20 +249,105 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     socketInstance.on('reconnect', (attemptNumber) => {
       console.log(`[Socket.IO] Reconnected after ${attemptNumber} attempts`);
       setIsConnected(true);
+      setConnectionState('connected');
     });
     
     socketInstance.on('reconnect_attempt', (attemptNumber) => {
       console.log(`[Socket.IO] Reconnection attempt ${attemptNumber}`);
+      setConnectionState('reconnecting');
     });
     
     socketInstance.on('reconnect_error', (error) => {
       console.error('[Socket.IO] Reconnection error:', error);
+      setConnectionState('failed');
     });
     
     socketInstance.on('reconnect_failed', () => {
       console.error('[Socket.IO] Failed to reconnect after all attempts');
       setIsConnected(false);
-    });    // Now connect
+      setConnectionState('failed');
+    });
+    
+    // Handle DJ status updates
+    socketInstance.on('dj_status_update', (data) => {
+      const { djId, isLive, djName, roomId } = data;
+      
+      // Update live rooms state
+      setLiveRooms(prev => {
+        const newMap = new Map(prev);
+        
+        if (isLive && roomId) {
+          newMap.set(roomId, { djId, djName });
+        } else if (!isLive && roomId) {
+          newMap.delete(roomId);
+        } else if (!roomId) {
+          // If no roomId, try to find and remove by djId
+          newMap.forEach((roomData, existingRoomId) => {
+            if (roomData.djId === djId) {
+              if (isLive) {
+                newMap.set(existingRoomId, { djId, djName });
+              } else {
+                newMap.delete(existingRoomId);
+              }
+            }
+          });
+        }
+        
+        return newMap;
+      });
+      
+      // Show basic status change notification for all users
+      try {
+        import('sonner').then(({ toast }) => {
+          if (isLive) {
+            // Basic notification for all signed-in users
+            if (session?.user) {
+              toast.info(`${djName || 'A DJ'} is now live!`, {
+                action: {
+                  label: 'View',
+                  onClick: () => window.location.href = `/live/${djId}`
+                }
+              });
+            }
+          }
+        });
+      } catch (e) {
+        console.log('[Socket.IO] Toast not available');
+      }
+    });
+
+    // Handle follower-specific notifications
+    socketInstance.on('dj_live_notification', async (data) => {
+      const { djId, djName } = data;
+      
+      // Only show follower notifications to actual followers
+      if (session?.user?.role === 'USER' && djId !== session?.user?.id) {
+        try {
+          // Check if current user is following this DJ
+          const response = await fetch(`/api/djs/${djId}/following`);
+          if (response.ok) {
+            const followData = await response.json();
+            
+            if (followData.isFollowing) {
+              import('sonner').then(({ toast }) => {
+                toast.success(`🎵 ${djName} is now live!`, {
+                  description: 'Your followed DJ just started a live session',
+                  action: {
+                    label: 'Join Live',
+                    onClick: () => window.location.href = `/live/${djId}`
+                  },
+                  duration: 10000 // Show longer for followers
+                });
+              });
+            }
+          }
+        } catch (error) {
+          console.error('[Socket.IO] Error checking following status:', error);
+        }
+      }
+    });
+
+    // Now connect
     console.log('[Socket.IO] Connecting to:', socketServerUrl);
     socketInstance.connect();
 
@@ -250,12 +371,129 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     return () => cleanup();
   }, [session, status, cleanup]);
 
+  // Function to send DJ live status update
+  const djLiveStatus = useCallback((roomId: string, isLive: boolean, djName?: string, djId?: string) => {
+    if (!socket || !isConnected || !roomId) {
+      return;
+    }
+    
+    // Extract DJ ID from room ID if not provided
+    let actualDjId = djId;
+    if (!actualDjId && roomId.startsWith('live-')) {
+      // Room format: live-{djId} or live-{djId}-club{clubId}
+      const parts = roomId.split('-');
+      if (parts.length >= 2) {
+        actualDjId = parts[1];
+      }
+    }
+    
+    // Fallback to session user ID if still no DJ ID
+    if (!actualDjId) {
+      actualDjId = session?.user?.id || 'unknown';
+    }
+    
+    const djData = {
+      roomId, 
+      isLive,
+      djId: actualDjId,
+      djName: djName || session?.user?.name || undefined
+    };
+    
+    socket.emit('dj_live', djData);
+    
+    // Update local state immediately for UI feedback
+    if (isLive) {
+      setLiveRooms(prev => {
+        const newMap = new Map(prev);
+        newMap.set(roomId, { 
+          djId: djData.djId,
+          djName: djData.djName
+        });
+        return newMap;
+      });
+    } else {
+      setLiveRooms(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(roomId);
+        return newMap;
+      });
+    }
+  }, [socket, isConnected, session]);
+
+  // Function to check if a DJ is currently live
+  const isDjLive = useCallback((djId: string) => {
+    if (!djId) return false;
+    
+    // Check if the DJ is live in any room
+    // Room IDs are in format: live-{djId} or live-{djId}-club{clubId}
+    let isLive = false;
+    liveRooms.forEach((roomData, roomId) => {
+      // Safety check: ensure roomId and roomData exist
+      if (!roomId || !roomData) {
+        return;
+      }
+      
+      // Method 1: Check if roomData.djId matches
+      if (roomData.djId === djId) {
+        isLive = true;
+        return;
+      }
+      
+      // Method 2: Check if room ID contains the DJ ID
+      if (typeof roomId === 'string' && roomId.includes(`live-${djId}`)) {
+        isLive = true;
+        return;
+      }
+    });
+    
+    return isLive;
+  }, [liveRooms]);
+
+  // Reconnect function
+  const reconnect = useCallback(() => {
+    console.log('[Socket.IO] Manual reconnection triggered');
+    
+    if (socketRef.current) {
+      // First disconnect if connected
+      if (socketRef.current.connected) {
+        socketRef.current.disconnect();
+      }
+      
+      // Clear any existing reconnection attempts
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      
+      // Reset connection attempts counter to give more chances
+      connectionAttemptsRef.current = 0;
+      
+      // Set state to reconnecting
+      setConnectionState('reconnecting');
+      
+      // Try to reconnect
+      socketRef.current.connect();
+      
+      // Show a toast message
+      try {
+        // Using dynamic import to avoid SSR issues
+        import('sonner').then(({ toast }) => {
+          toast.info('Reconnecting to server...');
+        });
+      } catch (e) {
+        console.log('[Socket.IO] Toast not available');
+      }
+    } else {
+      // If no socket instance exists, initialize a new one
+      initSocket();
+    }
+  }, []);
+
   useEffect(() => {
     initSocket();
   }, [initSocket]);
 
   return (
-    <SocketContext.Provider value={{ socket, isConnected }}>
+    <SocketContext.Provider value={{ socket, isConnected, connectionState, liveRooms, djLiveStatus, isDjLive, reconnect }}>
       {children}
     </SocketContext.Provider>
   );

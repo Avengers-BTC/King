@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, MapPin } from 'lucide-react';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
@@ -8,9 +8,11 @@ import { DJCard } from '@/components/dj-card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useSocket } from '@/contexts/socket-context';
+import { ConnectionInfo } from '@/components/ui/connection-info';
+import { LiveConnectionStatus } from '@/components/ui/live-connection-status';
 
-// Mock data - Replace with real data from your API
-const allDJs: Array<{
+interface DJ {
   id: string;
   genre: string;
   rating: number;
@@ -21,124 +23,170 @@ const allDJs: Array<{
     image: string | null;
     location: string | null;
   };
-}> = [
-  // Add your real DJs here when you create them
-  // Example structure:
-  // {
-  //   id: '1',
-  //   genre: 'Amapiano',
-  //   rating: 4.5,
-  //   fans: 1000,
-  //   currentClub: null,
-  //   user: {
-  //     name: 'DJ Name',
-  //     image: 'image-url',
-  //     location: 'Nairobi, Kenya'
-  //   }
-  // }
-];
+}
 
 export default function DJsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
+  const [showOnlyLive, setShowOnlyLive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [allDJs, setAllDJs] = useState<DJ[]>([]);
+  const { isDjLive, liveRooms } = useSocket();
 
-  const filteredDJs = allDJs.filter(dj => {
-    const matchesSearch = dj.user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         dj.genre.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesGenre = selectedGenre === 'all' || dj.genre === selectedGenre;
-    const matchesLocation = selectedLocation === 'all' || dj.user.location === selectedLocation;
-    
-    return matchesSearch && matchesGenre && matchesLocation;
-  });
+  const fetchDJs = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/djs');
+      if (!response.ok) {
+        throw new Error('Failed to fetch DJs');
+      }
+      const data = await response.json();
+      setAllDJs(data);
+    } catch (error) {
+      console.error('Error fetching DJs:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const genres = allDJs.length > 0 
-    ? allDJs.map(dj => dj.genre).filter((genre, index, array) => array.indexOf(genre) === index)
-    : [];
-  const locations = allDJs.length > 0 
-    ? allDJs.map(dj => dj.user.location)
-        .filter((location): location is string => location !== null)
-        .filter((location, index, array) => array.indexOf(location) === index)
-    : [];
+  // Fetch DJs on mount and refresh periodically
+  useEffect(() => {
+    fetchDJs();
+    const interval = setInterval(fetchDJs, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Refetch when live status changes
+  useEffect(() => {
+    fetchDJs();
+  }, [liveRooms]);
+
+  // Filter and sort DJs based on search, filters, and live status
+  const filteredDJs = useMemo(() => {
+    return allDJs
+      .filter(dj => {
+        const matchesSearch = dj.user.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            dj.genre.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesGenre = selectedGenre === 'all' || dj.genre === selectedGenre;
+        const matchesLocation = selectedLocation === 'all' || dj.user.location === selectedLocation;
+        const matchesLiveFilter = !showOnlyLive || isDjLive(dj.id);
+        
+        return matchesSearch && matchesGenre && matchesLocation && matchesLiveFilter;
+      })
+      .sort((a, b) => {
+        const aIsLive = isDjLive(a.id);
+        const bIsLive = isDjLive(b.id);
+        if (aIsLive && !bIsLive) return -1;
+        if (!aIsLive && bIsLive) return 1;
+        return b.rating - a.rating;
+      });
+  }, [allDJs, searchTerm, selectedGenre, selectedLocation, showOnlyLive, isDjLive]);
+
+  // Get unique genres and locations for filters
+  const genres = useMemo(() => {
+    const uniqueGenres = new Set(allDJs.map(dj => dj.genre));
+    return Array.from(uniqueGenres).sort();
+  }, [allDJs]);
+
+  const locations = useMemo(() => {
+    const uniqueLocations = new Set(allDJs.map(dj => dj.user.location).filter(Boolean) as string[]);
+    return Array.from(uniqueLocations).sort();
+  }, [allDJs]);
+
+  const liveDJsCount = useMemo(() => {
+    return allDJs.filter(dj => isDjLive(dj.id)).length;
+  }, [allDJs, isDjLive]);
 
   return (
-    <div className="min-h-screen bg-app-bg">
+    <div className="min-h-screen bg-app-background">
       <Navbar />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-app-text mb-4">
-            Discover Amazing <span className="text-electric-pink">DJs</span>
-          </h1>
-          <p className="text-app-text/70 max-w-2xl mx-auto">
-            Connect with the best DJs in the scene. Find your favorite genres, 
-            discover new sounds, and follow the artists that move you.
-          </p>
-        </div>
+      <main className="container mx-auto px-4 py-8">
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold">DJs</h1>
+            <LiveConnectionStatus />
+          </div>
 
-        {/* Search and Filters */}
-        <div className="glass-card p-6 mb-8">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-app-text/60" />
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search DJs by name or genre..."
+                type="text"
+                placeholder="Search DJs..."
+                className="pl-10"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-app-surface border-electric-pink/30 focus:border-electric-pink"
               />
             </div>
-            
-            <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-              <SelectTrigger className="w-full md:w-48 bg-app-surface border-electric-pink/30">
-                <SelectValue placeholder="Genre" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Genres</SelectItem>
-                {genres.map(genre => (
-                  <SelectItem key={genre} value={genre}>{genre}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-              <SelectTrigger className="w-full md:w-48 bg-app-surface border-electric-pink/30">
-                <SelectValue placeholder="Location" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Locations</SelectItem>
-                {locations.map(location => (
-                  <SelectItem key={location} value={location}>{location}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+            <div className="flex flex-wrap gap-3 items-center">
+              <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Genre" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem key="all-genres" value="all">All Genres</SelectItem>
+                  {genres.map(genre => (
+                    <SelectItem key={`genre-${genre}`} value={genre}>{genre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem key="all-locations" value="all">All Locations</SelectItem>
+                  {locations.map(location => (
+                    <SelectItem key={`location-${location}`} value={location}>{location}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant={showOnlyLive ? "default" : "outline"}
+                onClick={() => setShowOnlyLive(!showOnlyLive)}
+                className={`gap-2 ${showOnlyLive ? 'bg-red-500 hover:bg-red-600' : ''}`}
+              >
+                <div className={`w-2 h-2 rounded-full ${showOnlyLive ? 'bg-white animate-pulse' : 'bg-red-500'}`} />
+                Live DJs ({liveDJsCount})
+              </Button>
+            </div>
           </div>
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-app-surface rounded-lg h-64"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredDJs.map((dj) => (
+                  <DJCard
+                    key={dj.id}
+                    {...dj}
+                    isLive={isDjLive(dj.id)}
+                  />
+                ))}
+              </div>
+              
+              {filteredDJs.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-lg text-muted-foreground">
+                    {showOnlyLive ? 'No DJs are currently live.' : 'No DJs found matching your filters.'}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
         </div>
-
-        {/* Results */}
-        <div className="mb-6">
-          <p className="text-app-text/70">
-            Showing {filteredDJs.length} of {allDJs.length} DJs
-          </p>
-        </div>
-
-        {/* DJ Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredDJs.map((dj) => (
-            <DJCard key={dj.id} {...dj} />
-          ))}
-        </div>
-
-        {filteredDJs.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-app-text/60 text-lg">
-              No DJs found matching your criteria. Try adjusting your search or filters.
-            </p>
-          </div>
-        )}
-      </div>
-
+      </main>
       <Footer />
     </div>
   );

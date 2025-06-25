@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Paintbrush, Check } from 'lucide-react';
+import { Paintbrush, Check, Moon, Sun, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 
-type ChatTheme = 'default' | 'midnight' | 'sunset' | 'neon' | 'minimal';
+type ChatTheme = 'default' | 'midnight' | 'sunset' | 'neon' | 'minimal' | 'dark' | 'soft-dark' | 'gradient';
 
 interface ChatThemeOption {
   name: string;
@@ -76,7 +76,38 @@ const CHAT_THEMES: ChatThemeOption[] = [
       accent: '#f3f4f6',
       text: '#1f2937'
     }
-  }
+  },
+  // Modern dark themes
+  {
+    name: 'Dark',
+    value: 'dark',
+    colors: {
+      primary: '#3b82f6',
+      background: '#111827',
+      accent: '#1e3a8a',
+      text: '#ffffff'
+    }
+  },
+  {
+    name: 'Soft Dark',
+    value: 'soft-dark',
+    colors: {
+      primary: '#64748b',
+      background: '#1e293b',
+      accent: '#334155',
+      text: '#f1f5f9'
+    }
+  },
+  {
+    name: 'Gradient',
+    value: 'gradient',
+    colors: {
+      primary: '#818cf8',
+      background: '#0f172a',
+      accent: '#1e293b',
+      text: '#e2e8f0'
+    }
+  },
 ];
 
 interface ChatThemeSwitcherProps {
@@ -97,6 +128,7 @@ export function ChatThemeSwitcher({
       setCurrentTheme(savedTheme);
       applyTheme(savedTheme);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   const applyTheme = (themeValue: ChatTheme) => {
@@ -107,6 +139,29 @@ export function ChatThemeSwitcher({
     const root = document.documentElement;
     root.style.setProperty('--chat-primary', theme.colors.primary);
     root.style.setProperty('--chat-background', theme.colors.background);
+    
+    // Set chat bubble colors based on theme
+    if (themeValue === 'dark') {
+      root.style.setProperty('--chat-outgoing-bubble', '#1e3a8a'); // Dark blue
+      root.style.setProperty('--chat-incoming-bubble', '#1f2937'); // Dark gray
+    } 
+    else if (themeValue === 'soft-dark') {
+      root.style.setProperty('--chat-outgoing-bubble', '#0f172a'); // Very dark blue
+      root.style.setProperty('--chat-incoming-bubble', '#334155'); // Slate blue
+    }
+    else if (themeValue === 'gradient') {
+      root.style.setProperty('--chat-outgoing-bubble', '#1e3a8a'); // Dark blue
+      root.style.setProperty('--chat-incoming-bubble', '#1e293b'); // Dark slate
+      // Add gradient background
+      document.body.style.background = 'linear-gradient(to bottom right, #0f172a, #1e293b)';
+    }
+    else {
+      root.style.setProperty('--chat-outgoing-bubble', '#222222'); // Default dark
+      root.style.setProperty('--chat-incoming-bubble', '#333333'); // Default dark gray
+      // Reset gradient if switching from gradient theme
+      document.body.style.background = '';
+    }
+    
     root.style.setProperty('--chat-accent', theme.colors.accent);
     root.style.setProperty('--chat-text', theme.colors.text);
     

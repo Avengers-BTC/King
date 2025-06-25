@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { LiveSession } from '@/components/live-session';
 
 interface DJProfile {
   id: string;
@@ -49,8 +50,7 @@ export default function DJDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Import the LiveSession component
-  const { LiveSession } = require('@/components/live-session');
+
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -67,6 +67,7 @@ export default function DJDashboard() {
     if (user?.id) {
       fetchDJProfile();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isAuthenticated]);
 
   const fetchDJProfile = async () => {

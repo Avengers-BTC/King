@@ -8,6 +8,8 @@ import { Footer } from '@/components/footer';
 import { GlowButton } from '@/components/ui/glow-button';
 import { DJCard } from '@/components/dj-card';
 import { ClubCard } from '@/components/club-card';
+import { useSocket } from '@/contexts/socket-context';
+import { ConnectionInfo } from '@/components/ui/connection-info';
 
 interface DJ {
   id: string;
@@ -43,42 +45,63 @@ export default function Home() {
   const [topClubs, setTopClubs] = useState<Club[]>([]);
   const [stats, setStats] = useState({ djCount: 0, clubCount: 0, momentCount: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const { isDjLive, liveRooms } = useSocket();
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [djsResponse, clubsResponse, statsResponse] = await Promise.all([
+        fetch('/api/djs'),
+        fetch('/api/clubs'),
+        fetch('/api/stats')
+      ]);
+
+      const [djsData, clubsData, statsData] = await Promise.all([
+        djsResponse.json(),
+        clubsResponse.json(),
+        statsResponse.json()
+      ]);
+
+      // Sort DJs to show live DJs first
+      const sortedDJs = [...djsData].sort((a, b) => {
+        const aIsLive = isDjLive(a.id);
+        const bIsLive = isDjLive(b.id);
+        if (aIsLive && !bIsLive) return -1;
+        if (!aIsLive && bIsLive) return 1;
+        return b.rating - a.rating; // Secondary sort by rating
+      });
+
+      setTopDJs(sortedDJs);
+      setTopClubs(clubsData);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [djsResponse, clubsResponse, allDjsResponse, allClubsResponse, momentsResponse] = await Promise.all([
-          fetch('/api/djs?limit=3'),
-          fetch('/api/clubs?limit=3'),
-          fetch('/api/djs'),
-          fetch('/api/clubs'),
-          fetch('/api/moments')
-        ]);
-
-        const [djs, clubs, allDjs, allClubs, moments] = await Promise.all([
-          djsResponse.json(),
-          clubsResponse.json(),
-          allDjsResponse.json(),
-          allClubsResponse.json(),
-          momentsResponse.json()
-        ]);
-
-        setTopDJs(djs);
-        setTopClubs(clubs);
-        setStats({
-          djCount: Array.isArray(allDjs) ? allDjs.length : 0,
-          clubCount: Array.isArray(allClubs) ? allClubs.length : 0,
-          momentCount: Array.isArray(moments) ? moments.length : 0
-        });
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchData();
+    // Refresh data every minute to keep it current
+    const interval = setInterval(fetchData, 60000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Update DJ list when live status changes
+  useEffect(() => {
+    setTopDJs(prevDJs => {
+      const newDJs = [...prevDJs].sort((a, b) => {
+        const aIsLive = isDjLive(a.id);
+        const bIsLive = isDjLive(b.id);
+        if (aIsLive && !bIsLive) return -1;
+        if (!aIsLive && bIsLive) return 1;
+        return b.rating - a.rating;
+      });
+      return newDJs;
+    });
+  }, [liveRooms, isDjLive]);
 
   return (
     <div className="min-h-screen bg-app-bg">
@@ -149,9 +172,19 @@ export default function Home() {
       <section className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold text-app-text">
-              Top <span className="text-electric-pink">DJs</span> Today
-            </h2>
+            <div>
+              <h2 className="text-3xl font-bold text-app-text">
+                Top <span className="text-electric-pink">DJs</span> Today
+              </h2>
+              <p className="text-app-text/70 mt-1">
+                {topDJs.filter(dj => isDjLive(dj.id)).length > 0 && (
+                  <span className="flex items-center gap-1 text-red-500">
+                    <div className="live-status-dot"></div>
+                    Some DJs are currently live! Check them out.
+                  </span>
+                )}
+              </p>
+            </div>
             <Link href="/djs">
               <GlowButton variant="secondary" size="sm">
                 View All
@@ -169,7 +202,11 @@ export default function Home() {
               ))
             ) : (
               topDJs.map((dj) => (
-                <DJCard key={dj.id} {...dj} />
+                <DJCard 
+                  key={dj.id} 
+                  {...dj} 
+                  isLive={isDjLive(dj.id)}
+                />
               ))
             )}
           </div>

@@ -237,6 +237,26 @@
   100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0); }
 }
 
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-in-out;
 }
@@ -247,6 +267,24 @@
 
 .animate-pulse-glow {
   animation: pulse 2s infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.3s ease-out;
+}
+
+.live-status-indicator {
+  opacity: 0;
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+.live-status-dot {
+  background-color: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
 }
 
 /* Enhanced Chat UI Classes */

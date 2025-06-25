@@ -7,6 +7,7 @@ import { Users, Star, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Button } from './ui/button';
+import { getDjChatRoomId } from '@/lib/chat-room-utils';
 
 interface FanChatProps {
   djId: string;
@@ -15,7 +16,8 @@ interface FanChatProps {
 }
 
 export function FanChat({ djId, djName, className }: FanChatProps) {
-  const roomId = `dj-${djId}-fans`;
+  // Using the unified room ID format for all DJ chats
+  const roomId = getDjChatRoomId(djId);
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (    <Card className={cn(
