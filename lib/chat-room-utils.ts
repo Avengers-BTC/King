@@ -69,3 +69,13 @@ export function getClubIdFromRoomId(roomId: string): string | null {
   
   return null;
 }
+
+/**
+ * Create a unified room ID for club chats
+ * @param clubId The ID of the club
+ * @returns A consistent room ID string for club chats
+ */
+export function getClubChatRoomId(clubId: string): string {
+  if (!clubId) return '';
+  return `club-${clubId}`;
+}

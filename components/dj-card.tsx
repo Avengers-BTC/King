@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Star, MapPin, Users, Radio } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -17,17 +17,27 @@ export interface DJCardProps {
 }
 
 export function DJCard({ id, genre, rating, fans, currentClub, isLive = false, user }: DJCardProps) {
+  const router = useRouter();
 
+  const handleLiveSessionClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`/live/${id}`);
+  };
+
+  const handleCardClick = () => {
+    router.push(`/djs/${id}`);
+  };
   
   return (
     <div className="group relative">
-      <Link href={`/djs/${id}`} passHref>
-        <Card 
-          className={`
-            group hover:shadow-lg transition-all duration-300 overflow-hidden bg-app-surface border-border
-            ${isLive ? 'ring-2 ring-red-500 shadow-lg shadow-red-500/20 animate-pulse-border' : ''}
-          `}
-        >
+      <Card 
+        className={`
+          group hover:shadow-lg transition-all duration-300 overflow-hidden bg-app-surface border-border cursor-pointer
+          ${isLive ? 'ring-2 ring-red-500 shadow-lg shadow-red-500/20 animate-pulse-border' : ''}
+        `}
+        onClick={handleCardClick}
+      >
           <CardContent className="p-0">
             <div className="relative">
               <img
@@ -47,24 +57,22 @@ export function DJCard({ id, genre, rating, fans, currentClub, isLive = false, u
               {/* Enhanced live session button - now more prominent */}
               {isLive && (
                 <div 
-                  className="absolute bottom-16 left-4 right-4 flex justify-center animate-fade-in-up" 
-                  onClick={(e) => e.preventDefault()}
+                  className="absolute bottom-16 left-4 right-4 flex justify-center animate-fade-in-up"
                 >
-                  <Link href={`/live/${id}`} className="w-full">
-                    <button 
-                      className="
-                        w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 
-                        text-white py-3 px-6 rounded-lg shadow-xl backdrop-blur-sm
-                        flex items-center justify-center gap-3 transform transition-all duration-300
-                        hover:scale-105 hover:shadow-2xl hover:shadow-red-500/30 font-semibold
-                        border border-white/20
-                      "
-                    >
-                      <Radio className="w-5 h-5 animate-pulse" />
-                      <span className="text-base">Join Live Session</span>
-                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    </button>
-                  </Link>
+                  <button 
+                    className="
+                      w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 
+                      text-white py-3 px-6 rounded-lg shadow-xl backdrop-blur-sm
+                      flex items-center justify-center gap-3 transform transition-all duration-300
+                      hover:scale-105 hover:shadow-2xl hover:shadow-red-500/30 font-semibold
+                      border border-white/20
+                    "
+                    onClick={handleLiveSessionClick}
+                  >
+                    <Radio className="w-5 h-5 animate-pulse" />
+                    <span className="text-base">Join Live Session</span>
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  </button>
                 </div>
               )}
 
@@ -90,7 +98,6 @@ export function DJCard({ id, genre, rating, fans, currentClub, isLive = false, u
             </div>
           </CardContent>
         </Card>
-      </Link>
     </div>
   );
 }
