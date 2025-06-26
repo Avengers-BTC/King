@@ -102,8 +102,26 @@
   
   /* Prevent iOS zoom on input */
   @media screen and (max-width: 768px) {
-    input[type="text"] {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    textarea,
+    select {
       font-size: 16px;
+    }
+    
+    /* Improve touch targets on mobile */
+    button,
+    .button,
+    [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    
+    /* Better mobile tap areas */
+    .touch-target {
+      padding: 12px;
+      margin: 4px;
     }
   }
 

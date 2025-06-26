@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Heart, MessageCircle, Share, Plus, Filter } from 'lucide-react';
 import { Navbar } from '@/components/navbar';
@@ -9,30 +9,70 @@ import { GlowButton } from '@/components/ui/glow-button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
-// Mock data - Replace with real data from your API
-const moments: Array<{
+// Type for moment data from the API
+interface Moment {
   id: string;
-  user: string;
-  avatar: string;
   title: string;
+  caption?: string;
   image: string;
-  location: string;
-  likes: number;
-  comments: number;
-  timeAgo: string;
+  location?: string;
   type: string;
-}> = [
-  // Add your real moments here when users create them
-  // Moments will appear here once users start uploading
-];
+  createdAt: string;
+  user: {
+    name: string;
+    image?: string;
+    username?: string;
+  };
+  likes: Array<{ userId: string }>;
+  _count: {
+    comments: number;
+  };
+}
 
 export default function MomentsPage() {
   const [filter, setFilter] = useState('all');
+  const [moments, setMoments] = useState<Moment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchMoments();
+  }, []);
+
+  const fetchMoments = async () => {
+    try {
+      const response = await fetch('/api/moments');
+      if (response.ok) {
+        const data = await response.json();
+        setMoments(data);
+      }
+    } catch (error) {
+      console.error('Error fetching moments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredMoments = moments.filter(moment => {
     if (filter === 'all') return true;
     return moment.type === filter;
   });
+
+  const getTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInDays > 0) {
+      return `${diffInDays}d ago`;
+    } else if (diffInHours > 0) {
+      return `${diffInHours}h ago`;
+    } else {
+      const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+      return `${diffInMinutes}m ago`;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-app-bg">
@@ -83,68 +123,109 @@ export default function MomentsPage() {
           </Button>
         </div>
 
+        {/* Loading state */}
+        {loading && (
+          <div className="text-center py-12">
+            <p className="text-app-text/60 text-lg">Loading moments...</p>
+          </div>
+        )}
+
         {/* Moments Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredMoments.map((moment) => (
-            <Card key={moment.id} className="glass-card group hover:border-electric-pink/30 transition-all duration-300 overflow-hidden">
-              <div className="relative">
-                <div className="aspect-square bg-gradient-to-br from-electric-pink/10 to-neon-cyan/10">
-                  <img 
-                    src={moment.image} 
-                    alt={moment.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  {moment.type === 'video' && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-16 h-16 bg-electric-pink/80 rounded-full flex items-center justify-center">
-                        <div className="w-6 h-6 text-white fill-current">
-                          ▶
+        {!loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredMoments.map((moment) => (
+              <Card key={moment.id} className="glass-card group hover:border-electric-pink/30 transition-all duration-300 overflow-hidden">
+                <div className="relative">
+                  <div className="aspect-square bg-gradient-to-br from-electric-pink/10 to-neon-cyan/10">
+                    {moment.type === 'video' ? (
+                      <video 
+                        src={moment.image} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        controls
+                      />
+                    ) : (
+                      <img 
+                        src={moment.image} 
+                        alt={moment.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    )}
+                    {moment.type === 'video' && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-16 h-16 bg-electric-pink/80 rounded-full flex items-center justify-center">
+                          <div className="w-6 h-6 text-white fill-current">
+                            ▶
+                          </div>
                         </div>
                       </div>
+                    )}
+                  </div>
+                  <div className="absolute top-2 right-2 bg-app-bg/80 backdrop-blur-sm rounded-full px-2 py-1">
+                    <span className="text-xs text-app-text">{getTimeAgo(moment.createdAt)}</span>
+                  </div>
+                </div>
+                
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-electric-pink/20">
+                      {moment.user.image ? (
+                        <img src={moment.user.image} alt={moment.user.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-electric-pink font-bold">
+                          {moment.user.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                     </div>
+                    <span className="text-sm font-medium text-electric-pink">
+                      {moment.user.username || moment.user.name}
+                    </span>
+                  </div>
+                  
+                  <h3 className="font-semibold text-app-text mb-1">{moment.title}</h3>
+                  {moment.caption && (
+                    <p className="text-sm text-app-text/80 mb-2">{moment.caption}</p>
                   )}
-                </div>
-                <div className="absolute top-2 right-2 bg-app-bg/80 backdrop-blur-sm rounded-full px-2 py-1">
-                  <span className="text-xs text-app-text">{moment.timeAgo}</span>
-                </div>
-              </div>
-              
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2 mb-3">
-                  <div className="w-8 h-8 rounded-full overflow-hidden">
-                    <img src={moment.avatar} alt={moment.user} className="w-full h-full object-cover" />
-                  </div>
-                  <span className="text-sm font-medium text-electric-pink">{moment.user}</span>
-                </div>
-                
-                <h3 className="font-semibold text-app-text mb-1">{moment.title}</h3>
-                <p className="text-xs text-app-text/60 mb-3">{moment.location}</p>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <button className="flex items-center space-x-1 text-app-text/60 hover:text-electric-pink transition-colors">
-                      <Heart className="h-4 w-4" />
-                      <span className="text-xs">{moment.likes}</span>
-                    </button>
-                    <button className="flex items-center space-x-1 text-app-text/60 hover:text-neon-cyan transition-colors">
-                      <MessageCircle className="h-4 w-4" />
-                      <span className="text-xs">{moment.comments}</span>
+                  {moment.location && (
+                    <p className="text-xs text-app-text/60 mb-3">{moment.location}</p>
+                  )}
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <button className="flex items-center space-x-1 text-app-text/60 hover:text-electric-pink transition-colors">
+                        <Heart className="h-4 w-4" />
+                        <span className="text-xs">{moment.likes.length}</span>
+                      </button>
+                      <button className="flex items-center space-x-1 text-app-text/60 hover:text-neon-cyan transition-colors">
+                        <MessageCircle className="h-4 w-4" />
+                        <span className="text-xs">{moment._count.comments}</span>
+                      </button>
+                    </div>
+                    <button className="text-app-text/60 hover:text-electric-pink transition-colors">
+                      <Share className="h-4 w-4" />
                     </button>
                   </div>
-                  <button className="text-app-text/60 hover:text-electric-pink transition-colors">
-                    <Share className="h-4 w-4" />
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
-        {filteredMoments.length === 0 && (
+        {!loading && filteredMoments.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-app-text/60 text-lg">
-              No moments found matching your filter. Try selecting a different filter.
+            <p className="text-app-text/60 text-lg mb-4">
+              {moments.length === 0 
+                ? "No moments have been shared yet. Be the first to share your nightlife experience!" 
+                : "No moments found matching your filter. Try selecting a different filter."
+              }
             </p>
+            {moments.length === 0 && (
+              <Link href="/moments/upload">
+                <GlowButton className="flex items-center space-x-2 mx-auto">
+                  <Plus className="h-5 w-5" />
+                  <span>Share First Moment</span>
+                </GlowButton>
+              </Link>
+            )}
           </div>
         )}
       </div>

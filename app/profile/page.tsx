@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Edit, MapPin, Calendar, Music, Users, Heart, Share, Save, X } from 'lucide-react';
+import { Edit, MapPin, Calendar, Music, Users, Heart, Share, Save, X, AlertTriangle } from 'lucide-react';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
+import { ProfilePictureUpload } from '@/components/profile-picture-upload';
+import { DeleteProfileModal } from '@/components/delete-profile-modal';
 
 interface UserData {
   id: string;
@@ -228,19 +230,30 @@ export default function ProfilePage() {
             <div className="flex flex-col md:flex-row items-start md:items-end space-y-4 md:space-y-0 md:space-x-6">
               {/* Avatar */}
               <div className="relative">
-                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-pink-500 bg-gray-700">
-                  {userData.image ? (
-                    <img 
-                      src={userData.image} 
-                      alt={userData.name || 'Profile'}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-white">
-                      {userData.name?.[0]?.toUpperCase() || 'U'}
-                    </div>
-                  )}
-                </div>
+                {isEditing ? (
+                  <ProfilePictureUpload
+                    currentImage={userData.image}
+                    userId={userData.id}
+                    onImageUpdate={(imageUrl) => {
+                      setUserData(prev => prev ? { ...prev, image: imageUrl } : null);
+                    }}
+                    size="lg"
+                  />
+                ) : (
+                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-pink-500 bg-gray-700">
+                    {userData.image ? (
+                      <img 
+                        src={userData.image} 
+                        alt={userData.name || 'Profile'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-white">
+                        {userData.name?.[0]?.toUpperCase() || 'U'}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               
               {/* Profile Info */}
@@ -336,7 +349,7 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
           {/* Main Content */}
           <div className="lg:col-span-3">
             {/* Stats */}
@@ -391,7 +404,7 @@ export default function ProfilePage() {
               </TabsList>
               
               <TabsContent value="moments">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   {userData.moments.length > 0 ? (
                     userData.moments.map((moment) => (
                       <Card key={moment.id} className="border-gray-800 bg-gray-800/50 backdrop-blur-sm group hover:border-pink-500/30 transition-all duration-300 overflow-hidden">
@@ -458,6 +471,26 @@ export default function ProfilePage() {
                 <Button asChild variant="outline" className="w-full border-gray-600">
                   <a href="/clubs">Find Clubs</a>
                 </Button>
+              </CardContent>
+            </Card>
+
+            {/* Danger Zone */}
+            <Card className="border-red-800 bg-red-950/20 backdrop-blur-sm mt-6">
+              <CardHeader>
+                <CardTitle className="text-red-400 flex items-center">
+                  <AlertTriangle className="h-5 w-5 mr-2" />
+                  Danger Zone
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-red-300">
+                  Once you delete your account, there is no going back. Please be certain.
+                </p>
+                <DeleteProfileModal 
+                  userId={userData.id}
+                  userName={userData.name || 'User'}
+                  className="w-full"
+                />
               </CardContent>
             </Card>
           </div>

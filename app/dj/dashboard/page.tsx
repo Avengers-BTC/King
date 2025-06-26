@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { 
   Music, Users, Star, Calendar, MapPin, Edit, Plus, 
-  Instagram, Twitter, Facebook, TrendingUp, Heart, Eye, MessageCircle
+  Instagram, Twitter, Facebook, TrendingUp, Heart, Eye, AlertTriangle, MessageCircle
 } from 'lucide-react';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { LiveSession } from '@/components/live-session';
+import { DeleteProfileModal } from '@/components/delete-profile-modal';
 import { getDjChatRoomId } from '@/lib/chat-room-utils';
 
 interface DJProfile {
@@ -177,7 +178,7 @@ export default function DJDashboard() {
           </div>
           <div className="flex space-x-3">
             <Button asChild variant="outline" className="border-gray-600">
-              <a href={`/dj/profile/edit`}>
+              <a href="/profile">
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Profile
               </a>
@@ -192,7 +193,7 @@ export default function DJDashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
           <Card className="border-gray-800 bg-gray-800/50 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -274,7 +275,7 @@ export default function DJDashboard() {
 
           {/* Tabs Content */}
           <TabsContent value="overview">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
               {/* Current Status */}
               <Card className="border-gray-800 bg-gray-800/50 backdrop-blur-sm">
                 <CardHeader>
@@ -294,7 +295,7 @@ export default function DJDashboard() {
                     <div className="p-4 bg-gray-700/50 rounded-lg">
                       <p className="text-gray-400">No current venue set</p>
                       <Button asChild className="mt-2 bg-pink-500 hover:bg-pink-600" size="sm">
-                        <a href="/dj/profile/edit">Update Status</a>
+                        <a href="/profile">Update Status</a>
                       </Button>
                     </div>
                   )}
@@ -314,7 +315,7 @@ export default function DJDashboard() {
                     </a>
                   </Button>
                   <Button asChild variant="outline" className="w-full justify-start border-gray-600">
-                    <a href="/dj/profile/edit">
+                    <a href="/profile">
                       <Edit className="h-4 w-4 mr-2" />
                       Edit Profile
                     </a>
@@ -511,7 +512,7 @@ export default function DJDashboard() {
           </TabsContent>
 
           <TabsContent value="profile">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
               {/* Profile Info */}
               <Card className="border-gray-800 bg-gray-800/50 backdrop-blur-sm">
                 <CardHeader>
@@ -531,7 +532,7 @@ export default function DJDashboard() {
                     <p className="text-white">{djProfile.user.location || 'Not set'}</p>
                   </div>
                   <Button asChild className="w-full bg-pink-500 hover:bg-pink-600">
-                    <a href="/dj/profile/edit">Edit Profile</a>
+                    <a href="/profile">Edit Profile</a>
                   </Button>
                 </CardContent>
               </Card>
@@ -555,8 +556,29 @@ export default function DJDashboard() {
                     <span className="text-white">{djProfile.facebook || 'Not connected'}</span>
                   </div>
                   <Button asChild variant="outline" className="w-full border-gray-600">
-                    <a href="/dj/profile/edit">Update Social Links</a>
+                    <a href="/profile">Update Social Links</a>
                   </Button>
+                </CardContent>
+              </Card>
+
+              {/* Danger Zone */}
+              <Card className="border-red-800 bg-red-950/20 backdrop-blur-sm col-span-1 lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="text-red-400 flex items-center">
+                    <AlertTriangle className="h-5 w-5 mr-2" />
+                    Danger Zone
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-red-300">
+                    Once you delete your DJ account, there is no going back. This will permanently delete 
+                    your DJ profile, events, performance history, fan relationships, and all associated data.
+                  </p>
+                  <DeleteProfileModal 
+                    userId={user?.id || ''}
+                    userName={djProfile.user.name || 'DJ'}
+                    className="w-full"
+                  />
                 </CardContent>
               </Card>
             </div>

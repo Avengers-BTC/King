@@ -153,20 +153,29 @@ export default function DJSignupPage() {
 
       // Sign in with the newly created account
       const nextAuth = await import('next-auth/react');
+      
       const signInResult = await nextAuth.signIn('credentials', {
         email: formData.email,
         password: formData.password,
-        redirect: false
+        redirect: false,
+        callbackUrl: '/dj/dashboard'
       });
 
       if (signInResult?.error) {
+        throw new Error(`Authentication failed: ${signInResult.error}`);
+      }
+
+      if (!signInResult?.ok) {
         throw new Error('Authentication failed after signup');
       }
 
       toast.success('DJ profile created successfully!');
       
-      // Reload the page to ensure session is updated
-      window.location.href = djData.redirect || '/dj/dashboard';
+      // Small delay to ensure session is properly set
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Redirect to DJ dashboard
+      window.location.href = '/dj/dashboard';
     } catch (error: any) {
       // In production, we'll log the error but show a user-friendly message
       if (process.env.NODE_ENV === 'production') {
@@ -183,7 +192,7 @@ export default function DJSignupPage() {
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md border-gray-800 bg-gray-800/50 backdrop-blur-sm">
+      <Card className="w-full max-w-md border-gray-800 bg-gray-800/50 backdrop-blur-sm mx-4 sm:mx-0">
         <CardHeader className="space-y-1 text-center">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <Music className="h-8 w-8 text-pink-500" />

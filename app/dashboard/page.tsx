@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, Users, Heart, Calendar, MapPin, Music } from 'lucide-react';
+import { TrendingUp, Users, Heart, Calendar, MapPin, Music, AlertTriangle } from 'lucide-react';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { GlowButton } from '@/components/ui/glow-button';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
-import SessionDebugger from '@/components/session-debugger';
+
+import { DeleteProfileModal } from '@/components/delete-profile-modal';
 
 interface UserProfile {
   id: string;
@@ -78,20 +79,15 @@ export default function DashboardPage() {
     
     checkSocketHealth();
   }, []);
-  // Add a debug effect to log authentication status
+  // Handle authentication and redirects
   useEffect(() => {
     if (!isClient) return;
-    
-    console.log("[Dashboard] Auth Status:", status);
-    console.log("[Dashboard] Is Authenticated:", isAuthenticated);
-    console.log("[Dashboard] User:", user);
     
     setAuthDebug(`Status: ${status}, Authenticated: ${isAuthenticated ? 'Yes' : 'No'}, User: ${user ? 'Present' : 'Null'}`);
     
     // If we have "loading" status for more than a brief moment, try refreshing the session
     if (status === "loading" && updateSession) {
       const timeout = setTimeout(() => {
-        console.log("[Dashboard] Session still loading, forcing refresh");
         updateSession();
       }, 2000);
       
@@ -100,12 +96,8 @@ export default function DashboardPage() {
     
     // Force navigation to dashboard if authenticated
     if (status === "authenticated" && user) {
-      console.log("[Dashboard] User authenticated, ensuring we're on the dashboard");
-      
       // If we're at login but authenticated, manually push to dashboard
       if (clientPath === "/login") {
-        console.log("[Dashboard] Redirecting from login to dashboard");
-        // Use setTimeout to avoid hydration issues
         setTimeout(() => {
           window.location.href = "/dashboard";
         }, 100);
@@ -120,30 +112,12 @@ export default function DashboardPage() {
       try {
         setIsLoading(true);
         
-        // Display deployment info for debugging
-        console.log('Environment:', process.env.NODE_ENV);
-        console.log('Site URL:', process.env.NEXT_PUBLIC_SITE_URL || 'Not set');
-        console.log('Current origin:', typeof window !== 'undefined' ? window.location.origin : 'SSR');
-        
         // First check if the API is healthy
         const healthCheck = await fetch('/api/health', {
-          // Add cache: 'no-store' to avoid caching issues
-          cache: 'no-store',
-          headers: {
-            'x-debug': 'true'
-          }
+          cache: 'no-store'
         });
         
-        let healthData = null;
-        try {
-          healthData = await healthCheck.json();
-          console.log('Health check response:', healthData);
-        } catch (e) {
-          console.error('Failed to parse health check response:', e);
-        }
-        
         if (!healthCheck.ok) {
-          console.error('API health check failed:', healthCheck.status, healthCheck.statusText);
           toast.error(`API service is currently unavailable (${healthCheck.status}). Please try again later.`);
           setIsLoading(false);
           return;
@@ -374,7 +348,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-app-bg">
       <Navbar />
-      <SessionDebugger />
+
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
@@ -566,6 +540,26 @@ export default function DashboardPage() {
                   <div className="text-app-text font-medium">Check Leaderboard</div>
                   <div className="text-xs text-app-text/60">See who&apos;s trending</div>
                 </button>
+              </CardContent>
+            </Card>
+
+            {/* Danger Zone */}
+            <Card className="glass-card border-red-500/20">
+              <CardHeader>
+                <CardTitle className="text-red-400 flex items-center">
+                  <AlertTriangle className="h-5 w-5 mr-2" />
+                  Account Settings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-red-300">
+                  Permanently delete your account and all data.
+                </p>
+                <DeleteProfileModal 
+                  userId={userProfile.id}
+                  userName={userProfile.name || 'User'}
+                  className="w-full"
+                />
               </CardContent>
             </Card>
           </div>

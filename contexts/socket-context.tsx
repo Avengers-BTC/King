@@ -80,12 +80,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     if (!session?.user || status !== 'authenticated') return;
     
     cleanup();
-    console.log('[Socket.IO] Initializing socket connection...');
     const socketServerUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER;
-    console.log('[Socket.IO] Server URL:', socketServerUrl);
     
     if (!socketServerUrl) {
-      console.error('[Socket.IO] Missing NEXT_PUBLIC_SOCKET_SERVER environment variable');
       return;
     }
 
@@ -120,9 +117,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     fetch(socketServerUrl)
       .then(res => res.json())
       .then(health => {
-        console.log('[Socket.IO] Server health:', health);
         if (health.coldStart) {
-          console.log('[Socket.IO] Server is in cold start, waiting...');
           // Wait a bit longer for cold start
           setTimeout(() => socketInstance.connect(), 2000);
         } else {
@@ -130,7 +125,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .catch(err => {
-        console.error('[Socket.IO] Health check failed:', err);
         socketInstance.connect(); // Try connecting anyway
       });
 

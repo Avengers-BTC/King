@@ -34,8 +34,7 @@ declare module "next-auth/jwt" {
 }
 
 export const authOptions: NextAuthOptions = {
-  // Only enable debug in development
-  debug: process.env.NODE_ENV === 'development',
+  debug: false,
   adapter: PrismaAdapter(prisma) as Adapter,
   providers: [    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
       ? [

@@ -24,8 +24,6 @@ export default function LoginPage() {
   // Handle successful authentication
   useEffect(() => {
     if (auth.status === 'authenticated' && auth.session?.user) {
-      console.log("[Login] User authenticated, redirecting...");
-      
       // Get callback URL from query parameters or use default
       let redirectUrl = '/dashboard';
       const params = new URLSearchParams(window.location.search);
@@ -40,19 +38,16 @@ export default function LoginPage() {
       }
       
       // Use replace instead of push to prevent back navigation to login
-      console.log("[Login] Redirecting to:", redirectUrl);
       router.replace(redirectUrl);
     }
   }, [auth.status, auth.session, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("[Login] Submitting login form:", formData.email);
     
     const result = await login(formData.email, formData.password);
     
     if (result) {
-      console.log("[Login] Login successful");
       // The useEffect above will handle the redirect
     }
   };

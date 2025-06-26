@@ -194,6 +194,7 @@ model Event {
 model Moment {
   id        String       @id @default(cuid())
   title     String
+  caption   String?
   image     String
   location  String?
   type      String       @default("image")
