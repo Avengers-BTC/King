@@ -102,11 +102,8 @@ export function useChat(roomId: string) {
       }
     });    // Handle messages
     socket.on('new_message', (message: Message) => {
-      console.log(`[Chat] Received new message in room ${roomId}:`, message);
-      
       // Check if message.sender exists before accessing properties
       if (!message.sender || !message.sender.id || message.sender.id === 'undefined' || message.sender.id === 'null') {
-        console.error(`[Chat] Received message with undefined sender in room ${roomId}:`, message);
         // Don't skip - create a minimal sender object so UI can still display the message
         message.sender = {
           id: 'unknown',
@@ -116,12 +113,8 @@ export function useChat(roomId: string) {
       
       // Also validate sender name
       if (!message.sender.name || message.sender.name === 'undefined' || message.sender.name === 'null') {
-        console.error(`[Chat] Received message with undefined sender name in room ${roomId}:`, message);
         message.sender.name = message.sender.id === 'unknown' ? 'Unknown User' : `User ${message.sender.id.slice(0, 8)}`;
       }
-      
-      // Diagnostics to help troubleshoot message display issues
-      console.log(`[Chat] Current user ID: ${session?.user?.id || 'Unknown'}, Message sender ID: ${message.sender.id || 'Unknown'}`);
       
       // Play sound for received messages (not from current user)
       if (message.sender?.id !== session?.user?.id) {
@@ -132,13 +125,11 @@ export function useChat(roomId: string) {
       setMessages((prev) => {
         // Skip if we already have this exact message ID
         if (!message.id) {
-          console.error('[Chat] Received message without ID:', message);
           return prev;
         }
         
         const existingMessage = prev.find(m => m.id === message.id);
         if (existingMessage) {
-          console.log(`[Chat] Skipping duplicate message with ID: ${message.id}`);
           return prev;
         }
         
@@ -153,7 +144,6 @@ export function useChat(roomId: string) {
           );
           
           if (userMessageExists) {
-            console.log(`[Chat] Skipping duplicate message from current user: ${message.id}`);
             return prev;
           }
         }
@@ -161,9 +151,8 @@ export function useChat(roomId: string) {
         // Otherwise add as a new message
         return [...prev, message];
       });
-    });// Handle room errors
+    });    // Handle room errors
     socket.on('error', (error: { message: string }) => {
-      console.error(`[Chat] Room error:`, error);
       setMessages(prev => {
         // If there was a temporary message at the end, remove it
         const lastMessage = prev[prev.length - 1];

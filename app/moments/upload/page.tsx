@@ -73,7 +73,7 @@ export default function UploadMomentPage() {
     setPreview(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.title || !formData.file) {
@@ -81,18 +81,39 @@ export default function UploadMomentPage() {
       return;
     }
 
-    // Mock upload logic
-    console.log('Uploading moment:', formData);
-    toast.success('Moment uploaded successfully! 🎉');
-    
-    // Reset form
-    setFormData({
-      title: '',
-      caption: '',
-      location: '',
-      file: null
-    });
-    setPreview(null);
+    const data = new FormData();
+    data.append('file', formData.file);
+    data.append('title', formData.title);
+    data.append('caption', formData.caption);
+    data.append('location', formData.location);
+
+    try {
+      const res = await fetch('/api/moments/upload', {
+        method: 'POST',
+        body: data,
+      });
+      const result = await res.json();
+      if (res.ok && result.url) {
+        toast.success('Moment uploaded successfully! 🎉');
+        // Reset form first
+        setFormData({
+          title: '',
+          caption: '',
+          location: '',
+          file: null
+        });
+        setPreview(null);
+        // Redirect to moments page after a short delay
+        setTimeout(() => {
+          window.location.href = '/moments';
+        }, 1500);
+        return;
+      } else {
+        toast.error(result.error || 'Failed to upload moment');
+      }
+    } catch (err) {
+      toast.error('Failed to upload moment');
+    }
   };
 
   return (

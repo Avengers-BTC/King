@@ -166,7 +166,24 @@ export async function POST(request: Request) {
       user: result.user,
       redirect: '/dj/dashboard'
     });
-  } catch (error) {    return NextResponse.json(
+  } catch (error) {
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('unique constraint') || error.message.includes('Unique')) {
+        return NextResponse.json(
+          { error: 'DJ profile already exists for this user' },
+          { status: 400 }
+        );
+      }
+      
+      return NextResponse.json(
+        { error: `Failed to create DJ profile: ${error.message}` },
+        { status: 500 }
+      );
+    }
+    
+    return NextResponse.json(
       { error: 'Failed to create DJ profile' },
       { status: 500 }
     );
