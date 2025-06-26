@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
-import { Chat } from '@/components/chat';
+
 import { useSocket } from '@/contexts/socket-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,12 +23,13 @@ export default function LiveSessionPage() {
   const [djData, setDjData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeClub, setActiveClub] = useState<string | null>(null);
-  const [showChat, setShowChat] = useState(true);
   const [listeners, setListeners] = useState(0);
   
   // State for user following status - MOVED TO TOP
   const [isFollowing, setIsFollowing] = useState(false);
   const [followingLoading, setFollowingLoading] = useState(false);
+
+
 
   // Fetch DJ data
   useEffect(() => {
@@ -300,62 +301,97 @@ export default function LiveSessionPage() {
                 
                 <div className="mt-4 flex justify-between gap-2">
                   <Button
-                    variant={showChat ? 'default' : 'outline'}
                     className="flex-1"
-                    onClick={() => setShowChat(true)}
+                    onClick={() => router.push(`/chat/${roomId}`)}
                   >
                     <MessageCircle className="w-4 h-4 mr-2" />
-                    Chat
+                    Join Chat
                   </Button>
                   <Button
-                    variant={!showChat ? 'default' : 'outline'}
+                    variant="outline"
                     className="flex-1"
-                    onClick={() => setShowChat(false)}
+                    onClick={() => {
+                      // Scroll to the live stream section
+                      document.querySelector('[data-section="live-stream"]')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
                   >
                     <Volume2 className="w-4 h-4 mr-2" />
-                    Listen
+                    Live Stream
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </div>
           
-          {/* Chat/Live Panel */}
-          <div className="lg:col-span-2">
+          {/* Chat Section - Always show Join Chat button */}
+          <div className="lg:col-span-1">
+            <Card className="p-6">
+              <div className="text-center space-y-4">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <MessageCircle className="w-6 h-6 text-primary" />
+                  <h3 className="text-lg font-semibold">Live Chat</h3>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    Join the live chat to interact with {djData?.user?.name} and other fans
+                  </div>
+                  
+                  <Button 
+                    onClick={() => router.push(`/chat/${roomId}`)}
+                    className="w-full"
+                    size="lg"
+                  >
+                    <MessageCircle className="w-5 h-5 mr-2" />
+                    Join Chat
+                  </Button>
+                  
+                  <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      <span>Live audience</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span>Live session</span>
+                    </div>
+                  </div>
+                  
+                  <div className="text-xs text-muted-foreground">
+                    WhatsApp-style full-screen chat experience
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+          
+          {/* Live Stream Panel */}
+          <div className="lg:col-span-2" data-section="live-stream">
             <Card className="h-full flex flex-col">
               <CardHeader className="border-b">
                 <CardTitle className="text-xl flex items-center">
-                  {showChat ? (
-                    <>
-                      <MessageCircle className="w-5 h-5 mr-2" />
-                      Live Chat
-                    </>
-                  ) : (
-                    <>
-                      <Radio className="w-5 h-5 mr-2 animate-pulse" />
-                      Live Stream
-                    </>
-                  )}
+                  <Radio className="w-5 h-5 mr-2 animate-pulse" />
+                  Live Stream
                 </CardTitle>
               </CardHeader>
               
               <CardContent className="flex-grow p-0">
-                {showChat ? (
-                  <Chat
-                    roomId={roomId}
-                    className="h-[600px] border-0"
-                    isLiveSession={true}
-                  />
-                ) : (
-                  <div className="h-[600px] flex flex-col items-center justify-center p-6 text-center">
-                    <Radio className="w-12 h-12 text-red-500 animate-pulse mb-4" />
-                    <h3 className="text-xl font-bold mb-2">Live Audio Coming Soon</h3>
-                    <p className="text-muted-foreground">
-                      We&apos;re working on bringing live audio streams to our platform.
-                      For now, enjoy the chat and interaction with other fans!
-                    </p>
-                  </div>
-                )}
+                <div className="h-[600px] flex flex-col items-center justify-center p-6 text-center">
+                  <Radio className="w-12 h-12 text-red-500 animate-pulse mb-4" />
+                  <h3 className="text-xl font-bold mb-2">Live Audio Coming Soon</h3>
+                  <p className="text-muted-foreground mb-6">
+                    We&apos;re working on bringing live audio streams to our platform.
+                    For now, enjoy the chat and interaction with other fans!
+                  </p>
+                  <Button 
+                    onClick={() => router.push(`/chat/${roomId}`)}
+                    size="lg"
+                    className="mt-4"
+                  >
+                    <MessageCircle className="w-5 h-5 mr-2" />
+                    Join Live Chat Instead
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>

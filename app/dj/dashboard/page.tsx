@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { 
   Music, Users, Star, Calendar, MapPin, Edit, Plus, 
-  Instagram, Twitter, Facebook, TrendingUp, Heart, Eye, AlertTriangle
+  Instagram, Twitter, Facebook, TrendingUp, Heart, Eye, AlertTriangle, MessageCircle
 } from 'lucide-react';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { LiveSession } from '@/components/live-session';
 import { DeleteProfileModal } from '@/components/delete-profile-modal';
+import { getDjChatRoomId } from '@/lib/chat-room-utils';
 
 interface DJProfile {
   id: string;
@@ -27,6 +28,7 @@ interface DJProfile {
   instagram: string | null;
   twitter: string | null;
   facebook: string | null;
+  status?: 'PERFORMING' | 'OFFLINE' | 'SCHEDULED' | 'ON_BREAK';
   user: {
     name: string;
     username: string;
@@ -50,8 +52,6 @@ export default function DJDashboard() {
   const [djProfile, setDjProfile] = useState<DJProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-
-
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -332,11 +332,137 @@ export default function DJDashboard() {
           </TabsContent>
 
           <TabsContent value="live">
-            <LiveSession
-              djId={djProfile?.id || ''}
-              djName={djProfile?.user?.name || ''}
-              clubs={[]}  // You can pass actual clubs data here
-            />
+            <div className="space-y-6">
+              <LiveSession
+                djId={djProfile?.id || ''}
+                djName={djProfile?.user?.name || ''}
+                clubs={[]}  // You can pass actual clubs data here
+              />
+              
+              {/* Enhanced DJ Live Host Panel */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Host Controls */}
+                <Card className="border-gray-800 bg-gray-800/50 backdrop-blur-sm">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <Music className="w-5 h-5 text-pink-500" />
+                      Host Controls
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                                        <div className={`p-4 rounded-lg border ${
+                       djProfile?.status === 'PERFORMING' 
+                         ? 'bg-pink-500/10 border-pink-500/30' 
+                         : 'bg-gray-700/30 border-gray-600/30'
+                     }`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-white font-medium">Session Status</span>
+                        <Badge variant={djProfile?.status === 'PERFORMING' ? 'destructive' : 'secondary'} 
+                               className={djProfile?.status === 'PERFORMING' ? 'animate-pulse' : ''}>
+                          {djProfile?.status === 'PERFORMING' ? 'LIVE' : 'OFFLINE'}
+                        </Badge>
+                      </div>
+                      {djProfile?.status === 'PERFORMING' ? (
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-400">Listeners</span>
+                            <p className="text-white font-semibold">Loading...</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Duration</span>
+                            <p className="text-white font-semibold">Live now</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-400">
+                          Not currently live. Go live to see session metrics.
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Button className="w-full bg-green-600 hover:bg-green-700">
+                        <Music className="w-4 h-4 mr-2" />
+                        Update Now Playing
+                      </Button>
+                      <Button variant="outline" className="w-full border-gray-600">
+                        <Users className="w-4 h-4 mr-2" />
+                        Manage Listeners
+                      </Button>
+                      <Button variant="outline" className="w-full border-gray-600 text-yellow-500 border-yellow-500">
+                        <Star className="w-4 h-4 mr-2" />
+                        Pin Announcement
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Live Chat Preview/Controls */}
+                <Card className="border-gray-800 bg-gray-800/50 backdrop-blur-sm">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <MessageCircle className="w-5 h-5 text-cyan-500" />
+                        Live Chat Activity
+                      </span>
+                      <Button 
+                        size="sm" 
+                        onClick={() => router.push(`/chat/${getDjChatRoomId(djProfile?.id || '', djProfile?.currentClub || '')}`)}
+                        className="bg-cyan-500 hover:bg-cyan-600"
+                      >
+                        Open Full Chat
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Chat Preview */}
+                    <div className="space-y-3 max-h-48 overflow-y-auto">
+                      {djProfile?.status === 'PERFORMING' ? (
+                        <div className="text-center py-8">
+                          <MessageCircle className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                          <p className="text-gray-400 text-sm">Recent chat messages will appear here</p>
+                          <p className="text-xs text-gray-500 mt-1">Connect to real-time chat to see fan interactions</p>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <MessageCircle className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                          <p className="text-gray-400 text-sm">Go live to see chat activity</p>
+                          <p className="text-xs text-gray-500 mt-1">Your fans will be able to chat with you during live sessions</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t border-gray-700">
+                      <div className="text-xs text-gray-400 mb-2">Quick Actions</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button size="sm" variant="outline" className="border-gray-600 text-xs">
+                          📌 Pin Message
+                        </Button>
+                        <Button size="sm" variant="outline" className="border-gray-600 text-xs">
+                          🔇 Mute User
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* When Not Live - Encouragement */}
+              <Card className="border-gray-800 bg-gray-800/50 backdrop-blur-sm">
+                <CardContent className="p-6 text-center">
+                  <div className="max-w-md mx-auto">
+                    <Music className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-white mb-2">Ready to Connect with Your Fans?</h3>
+                    <p className="text-gray-400 mb-4">
+                      When you go live, you&apos;ll see real-time chat activity here and can interact with your audience directly.
+                    </p>
+                    <div className="text-sm text-gray-500">
+                      💡 <strong>Pro Tip:</strong> Your fans can find and join your live chat from your DJ profile, the main chat list, or when browsing live DJs!
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="events">
