@@ -170,7 +170,7 @@ export default function DJProfilePage() {
     }
     
     try {
-      const response = await fetch(`/api/djs/${djId}/rate`, {
+      const response = await fetch(`/api/djs/${djId}/rating`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -260,7 +260,7 @@ export default function DJProfilePage() {
                     <div className="relative">
                       <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-app-surface">
                         <img 
-                          src={dj.user.image || '/default-dj.jpg'} 
+                          src={dj.user.image || `https://avatar.iran.liara.run/username?username=${encodeURIComponent(dj.user.name || 'DJ')}`} 
                           alt={dj.user.name || 'DJ'}
                           className="w-full h-full object-cover"
                         />

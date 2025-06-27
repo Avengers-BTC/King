@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 interface DJ {
   id: string;
   genre: string;
+  rating: number;
+  fans: number;
   user: {
     name: string | null;
     image: string | null;
@@ -24,6 +26,7 @@ interface Club {
   location: string;
   image?: string;
   rating: number;
+  capacity: number;
 }
 
 function getRankIcon(rank: number) {
@@ -63,7 +66,7 @@ function DJLeaderboard({ djs }: { djs: DJ[] }) {
                 
                 <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-electric-pink/30">
                   <img 
-                    src={dj.user.image || '/default-avatar.jpg'} 
+                    src={dj.user.image || `https://avatar.iran.liara.run/username?username=${encodeURIComponent(dj.user.name || 'DJ')}`} 
                     alt={dj.user.name || 'DJ'} 
                     className="w-full h-full object-cover" 
                   />
@@ -83,11 +86,11 @@ function DJLeaderboard({ djs }: { djs: DJ[] }) {
                   <div className="flex items-center space-x-4 text-xs text-app-text/60">
                     <div className="flex items-center space-x-1">
                       <Users className="h-3 w-3" />
-                      <span>0 fans</span>
+                      <span>{dj.fans || 0} fans</span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <TrendingUp className="h-3 w-3" />
-                      <span>0 views</span>
+                      <span>{dj.rating ? `${dj.rating.toFixed(1)} rating` : 'No rating'}</span>
                     </div>
                   </div>
                 </div>
@@ -124,7 +127,7 @@ function ClubLeaderboard({ clubs }: { clubs: Club[] }) {
                 
                 <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-neon-cyan/30">
                   <img 
-                    src={club.image || '/default-club.jpg'} 
+                    src={club.image || `https://images.placeholders.dev/?width=200&height=200&text=${encodeURIComponent(club.name)}&bgColor=%23000000&textColor=%23ffffff`} 
                     alt={club.name} 
                     className="w-full h-full object-cover" 
                   />
@@ -142,8 +145,8 @@ function ClubLeaderboard({ clubs }: { clubs: Club[] }) {
                     <span className="text-lg font-bold text-neon-cyan">#{index + 1}</span>
                   </div>
                   <div className="flex items-center space-x-4 text-xs text-app-text/60">
-                    <div>★ {club.rating}</div>
-                    <div>0 check-ins</div>
+                    <div>★ {club.rating.toFixed(1)}</div>
+                    <div>{club.capacity ? `${club.capacity} capacity` : 'No data'}</div>
                   </div>
                 </div>
               </div>
@@ -174,8 +177,21 @@ export default function LeaderboardPage() {
           clubsResponse.json()
         ]);
 
-        setDjs(Array.isArray(djsData) ? djsData : []);
-        setClubs(Array.isArray(clubsData) ? clubsData : []);
+        // Sort DJs by rating, then by fans
+        const sortedDJs = Array.isArray(djsData) 
+          ? djsData.sort((a, b) => {
+              if (b.rating !== a.rating) return b.rating - a.rating;
+              return b.fans - a.fans;
+            })
+          : [];
+
+        // Sort clubs by rating
+        const sortedClubs = Array.isArray(clubsData) 
+          ? clubsData.sort((a, b) => b.rating - a.rating)
+          : [];
+
+        setDjs(sortedDJs);
+        setClubs(sortedClubs);
         setStats({
           totalUsers: (djsData?.length || 0) + (clubsData?.length || 0),
           totalVotes: 0, // This would be calculated from real engagement data

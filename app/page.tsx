@@ -113,16 +113,12 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-r from-app-bg via-app-bg/90 to-app-bg z-10" />
           {/* Fallback background if video doesn't load */}
           <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 to-black z-[5]"></div>
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-            poster="/images/nightlife-poster.jpg"
-          >
-            <source src="/hero-video.mp4" type="video/mp4" />
-          </video>
+          <div 
+            className="w-full h-full bg-gradient-to-br from-purple-900 via-blue-900 to-black bg-cover bg-center"
+            style={{
+              backgroundImage: `url('https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80')`
+            }}
+          ></div>
         </div>
         
         <div className="relative z-20 text-center px-4 sm:px-6 lg:px-8">

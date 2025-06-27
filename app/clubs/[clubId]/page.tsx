@@ -145,7 +145,7 @@ export default function ClubDetailPage() {
         {/* Hero Section */}
         <div className="relative h-64 md:h-80 rounded-lg overflow-hidden mb-8">
           <img 
-            src={club.image || '/default-club.jpg'} 
+            src={club.image || 'https://images.placeholders.dev/?width=800&height=400&text=Club&bgColor=%23000000&textColor=%23ffffff'} 
             alt={club.name}
             className="w-full h-full object-cover"
           />
@@ -261,7 +261,7 @@ export default function ClubDetailPage() {
                     {club.events.map((event) => (
                       <div key={event.id} className="flex items-center gap-4 p-4 border border-app-surface rounded-lg">
                         <img 
-                          src={event.dj.user.image || '/default-dj.jpg'} 
+                          src={event.dj.user.image || `https://avatar.iran.liara.run/username?username=${encodeURIComponent(event.dj.user.name || 'DJ')}`} 
                           alt={event.dj.user.name}
                           className="w-12 h-12 rounded-full object-cover"
                         />

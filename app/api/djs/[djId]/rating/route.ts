@@ -10,34 +10,102 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ rating: null });
     }
 
     const { djId } = params;
 
-    // Get average rating and count
-    const ratings = await prisma.djRating.aggregate({
-      where: { djId },
-      _avg: { rating: true },
-      _count: { rating: true }
+    const userRating = await prisma.djRating.findUnique({
+      where: {
+        userId_djId: {
+          userId: session.user.id,
+          djId
+        }
+      }
     });
 
-    // Check if current user has rated this DJ
-    const userRating = session.user.role === 'USER' ? await prisma.djRating.findFirst({
-      where: {
-        djId,
-        userId: session.user.id
-      }
-    }) : null;
-
     return NextResponse.json({
-      averageRating: ratings._avg.rating || 0,
-      totalRatings: ratings._count.rating || 0,
-      userRating: userRating?.rating || null
+      rating: userRating?.rating || null
     });
 
   } catch (error) {
-    console.error('Error getting DJ rating:', error);
+    console.error('Error getting user rating:', error);
+    return NextResponse.json({ rating: null });
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { djId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { djId } = params;
+    const { rating } = await request.json();
+
+    // Validate rating
+    if (!rating || rating < 1 || rating > 5) {
+      return NextResponse.json(
+        { error: 'Rating must be between 1 and 5' },
+        { status: 400 }
+      );
+    }
+
+    // Check if DJ exists
+    const dj = await prisma.dj.findUnique({
+      where: { id: djId }
+    });
+
+    if (!dj) {
+      return NextResponse.json({ error: 'DJ not found' }, { status: 404 });
+    }
+
+    // Create or update the rating
+    await prisma.djRating.upsert({
+      where: {
+        userId_djId: {
+          userId: session.user.id,
+          djId
+        }
+      },
+      create: {
+        userId: session.user.id,
+        djId,
+        rating
+      },
+      update: {
+        rating
+      }
+    });
+
+    // Calculate new average rating
+    const allRatings = await prisma.djRating.findMany({
+      where: { djId },
+      select: { rating: true }
+    });
+
+    const averageRating = allRatings.length > 0 
+      ? allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length
+      : 0;
+
+    // Update DJ's average rating
+    await prisma.dj.update({
+      where: { id: djId },
+      data: { rating: averageRating }
+    });
+
+    return NextResponse.json({
+      success: true,
+      newRating: averageRating,
+      userRating: rating
+    });
+
+  } catch (error) {
+    console.error('Error rating DJ:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

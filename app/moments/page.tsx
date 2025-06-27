@@ -8,6 +8,8 @@ import { Footer } from '@/components/footer';
 import { GlowButton } from '@/components/ui/glow-button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/use-auth';
+import { toast } from 'sonner';
 
 // Type for moment data from the API
 interface Moment {
@@ -30,9 +32,11 @@ interface Moment {
 }
 
 export default function MomentsPage() {
+  const { user, isAuthenticated } = useAuth();
   const [filter, setFilter] = useState('all');
   const [moments, setMoments] = useState<Moment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [likedMoments, setLikedMoments] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchMoments();
@@ -44,11 +48,74 @@ export default function MomentsPage() {
       if (response.ok) {
         const data = await response.json();
         setMoments(data);
+        
+        // If user is authenticated, check which moments they've liked
+        if (isAuthenticated && user) {
+          const likedMomentIds = new Set<string>();
+          data.forEach((moment: Moment) => {
+            if (moment.likes.some(like => like.userId === user.id)) {
+              likedMomentIds.add(moment.id);
+            }
+          });
+          setLikedMoments(likedMomentIds);
+        }
       }
     } catch (error) {
       console.error('Error fetching moments:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLike = async (momentId: string) => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to like moments');
+      return;
+    }
+
+    const isLiked = likedMoments.has(momentId);
+    const method = isLiked ? 'DELETE' : 'POST';
+
+    try {
+      const response = await fetch(`/api/moments/${momentId}/like`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Update local state
+        const newLikedMoments = new Set(likedMoments);
+        if (data.liked) {
+          newLikedMoments.add(momentId);
+        } else {
+          newLikedMoments.delete(momentId);
+        }
+        setLikedMoments(newLikedMoments);
+
+        // Update moments list with new like count
+        setMoments(prevMoments => 
+          prevMoments.map(moment => 
+            moment.id === momentId 
+              ? { ...moment, likes: data.liked 
+                  ? [...moment.likes, { userId: user!.id }]
+                  : moment.likes.filter(like => like.userId !== user!.id)
+                }
+              : moment
+          )
+        );
+
+        toast.success(data.liked ? 'Moment liked!' : 'Like removed');
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Failed to update like');
+      }
+    } catch (error) {
+      console.error('Error updating like:', error);
+      toast.error('Failed to update like');
     }
   };
 
@@ -191,8 +258,15 @@ export default function MomentsPage() {
                   
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <button className="flex items-center space-x-1 text-app-text/60 hover:text-electric-pink transition-colors">
-                        <Heart className="h-4 w-4" />
+                      <button 
+                        onClick={() => handleLike(moment.id)}
+                        className={`flex items-center space-x-1 transition-colors ${
+                          likedMoments.has(moment.id) 
+                            ? 'text-red-500 hover:text-red-600' 
+                            : 'text-app-text/60 hover:text-electric-pink'
+                        }`}
+                      >
+                        <Heart className={`h-4 w-4 ${likedMoments.has(moment.id) ? 'fill-current' : ''}`} />
                         <span className="text-xs">{moment.likes.length}</span>
                       </button>
                       <button className="flex items-center space-x-1 text-app-text/60 hover:text-neon-cyan transition-colors">

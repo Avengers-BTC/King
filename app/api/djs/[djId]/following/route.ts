@@ -10,34 +10,26 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ isFollowing: false });
     }
 
     const { djId } = params;
 
-    // Count total followers
-    const followersCount = await prisma.fanFollowing.count({
-      where: { djId }
+    const following = await prisma.fanFollowing.findUnique({
+      where: {
+        userId_djId: {
+          userId: session.user.id,
+          djId
+        }
+      }
     });
 
-    // Check if current user is following this DJ
-    const isFollowing = session.user.role === 'USER' ? await prisma.fanFollowing.findFirst({
-      where: {
-        djId,
-        userId: session.user.id
-      }
-    }) : null;
-
     return NextResponse.json({
-      followersCount,
-      isFollowing: !!isFollowing
+      isFollowing: !!following
     });
 
   } catch (error) {
-    console.error('Error getting DJ following status:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Error checking following status:', error);
+    return NextResponse.json({ isFollowing: false });
   }
 } 
