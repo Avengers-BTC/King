@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/lib/auth-options';
 import { prisma } from '@/lib/prisma';
+import { NotificationService } from '@/lib/notification-service';
 
 export async function POST(
   request: NextRequest,
@@ -48,6 +49,18 @@ export async function POST(
         userId: session.user.id
       }
     });
+
+    // Create notification for the DJ
+    try {
+      await NotificationService.notifyNewFollower(
+        djId,
+        session.user.name || 'Someone',
+        session.user.id
+      );
+    } catch (error) {
+      console.error('Failed to create follow notification:', error);
+      // Don't fail the follow operation if notification fails
+    }
 
     return NextResponse.json({ message: 'Successfully followed DJ' });
 

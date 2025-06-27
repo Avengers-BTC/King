@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { NotificationCenter } from '@/components/ui/notification-center';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -62,6 +63,7 @@ export function Navbar() {
 
   const authLinks = [
     { href: '/profile', label: 'Profile' },
+    { href: '/settings/notifications', label: 'Notification Settings' },
     ...(user?.role === 'DJ' ? [{ href: '/dj/dashboard', label: 'DJ Dashboard' }] : [{ href: '/dashboard', label: 'Dashboard' }]),
   ];
 
@@ -129,6 +131,11 @@ export function Navbar() {
               <Moon className="absolute h-[1.1rem] w-[1.1rem] sm:h-[1.2rem] sm:w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
               <span className="sr-only">Toggle theme</span>
             </Button>
+
+            {/* Notification Center - Only for authenticated users */}
+            {isAuthenticated && (
+              <NotificationCenter className="hidden md:flex" />
+            )}
 
             {/* Auth buttons */}
             <div className="hidden md:flex items-center space-x-2">
