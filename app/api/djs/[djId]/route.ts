@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
@@ -22,67 +22,60 @@ interface UpdateDJBody {
 }
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { djId: string } }
 ) {
   try {
-    if (!isValidId(params.djId)) {
-      return NextResponse.json(
-        { error: 'Invalid DJ ID provided' },
-        { status: 400 }
-      );
-    }
+    const { djId } = params;
 
-    const dj = await prisma.dj.findFirst({
-      where: {
-        OR: [
-          { id: params.djId },
-          { userId: params.djId }
-        ]
-      },
+    const dj = await prisma.dj.findUnique({
+      where: { id: djId },
       include: {
         user: {
           select: {
+            id: true,
             name: true,
+            email: true,
             image: true,
-            location: true
-          }
-        },
-        affiliations: {
-          where: {
-            endDate: null // Only get current affiliations
-          },
-          take: 1,
-          include: {
-            club: {
-              select: {
-                id: true,
-                name: true,
-                location: true,
-                image: true
-              }
-            }
+            username: true,
+            location: true,
+            bio: true,
+            joinDate: true
           }
         },
         events: {
           where: {
             date: {
-              gt: new Date()
-            }
-          },
-          include: {
-            club: {
-              select: {
-                id: true,
-                name: true,
-                location: true,
-                image: true
-              }
+              gte: new Date()
             }
           },
           orderBy: {
             date: 'asc'
+          },
+          take: 5,
+          include: {
+            club: {
+              select: {
+                name: true,
+                location: true
+              }
+            }
           }
+        },
+        ratings: {
+          select: {
+            rating: true,
+            user: {
+              select: {
+                name: true
+              }
+            },
+            createdAt: true
+          },
+          orderBy: {
+            createdAt: 'desc'
+          },
+          take: 10
         },
         fanFollowers: {
           select: {
@@ -99,43 +92,32 @@ export async function GET(
       );
     }
 
-    // Transform the response to include only necessary data
-    return NextResponse.json({
-      id: dj.id,
-      userId: dj.userId,
-      genres: dj.genres,
-      bio: dj.bio,
-      rating: dj.rating,
-      status: dj.status,
-      currentClub: dj.currentClub,
-      socialLinks: {
-        instagram: dj.instagram,
-        twitter: dj.twitter,
-        facebook: dj.facebook
-      },
-      fans: dj.fans, // Use the fans field from schema
-      fanFollowers: dj.fanFollowers.length, // Also provide follower count
-      user: dj.user,
-      currentClubInfo: dj.affiliations[0]?.club ?? null,
-      events: dj.events.map(event => ({
-        id: event.id,
-        name: event.name,
-        date: event.date,
-        club: event.club
-      }))
-    });
+    // Calculate average rating
+    const averageRating = dj.ratings.length > 0 
+      ? dj.ratings.reduce((sum, rating) => sum + rating.rating, 0) / dj.ratings.length
+      : 0;
 
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientInitializationError) {
-      return NextResponse.json(
-        { error: 'Database connection error' },
-        { status: 503 }
-      );
+    // Update DJ's rating if it's different
+    if (Math.abs(dj.rating - averageRating) > 0.1) {
+      await prisma.dj.update({
+        where: { id: djId },
+        data: { rating: averageRating }
+      });
     }
 
+    const djData = {
+      ...dj,
+      rating: averageRating,
+      fans: dj.fanFollowers.length,
+      totalRatings: dj.ratings.length
+    };
+
+    return NextResponse.json(djData);
+
+  } catch (error) {
     console.error('Error fetching DJ:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch DJ' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

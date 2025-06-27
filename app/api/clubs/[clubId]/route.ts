@@ -1,17 +1,40 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { clubId: string } }
 ) {
   try {
+    const { clubId } = params;
+
     const club = await prisma.club.findUnique({
-      where: { id: params.clubId },
+      where: { id: clubId },
       include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            username: true,
+            location: true,
+            bio: true,
+            joinDate: true
+          }
+        },
         events: {
+          where: {
+            date: {
+              gte: new Date()
+            }
+          },
+          orderBy: {
+            date: 'asc'
+          },
+          take: 10,
           include: {
             dj: {
               include: {
@@ -25,8 +48,36 @@ export async function GET(
             }
           }
         },
-        user: true,
+        djSchedules: {
+          where: {
+            startTime: {
+              gte: new Date()
+            }
+          },
+          orderBy: {
+            startTime: 'asc'
+          },
+          take: 5,
+          include: {
+            dj: {
+              include: {
+                user: {
+                  select: {
+                    name: true,
+                    image: true
+                  }
+                }
+              }
+            }
+          }
+        },
         djAffiliations: {
+          where: {
+            OR: [
+              { endDate: null },
+              { endDate: { gte: new Date() } }
+            ]
+          },
           include: {
             dj: {
               include: {
@@ -50,28 +101,12 @@ export async function GET(
       );
     }
 
-    // Find the current/resident DJ (if any) from the affiliations
-    const residentDj = club.djAffiliations.find(
-      affiliation => affiliation.type === 'RESIDENT' && (!affiliation.endDate || new Date(affiliation.endDate) > new Date())
-    )?.dj;
+    return NextResponse.json(club);
 
-    // Transform the response to match the expected format
-    const response = {
-      ...club,
-      currentDj: residentDj ? {
-        id: residentDj.id,
-        userId: residentDj.userId,
-        user: residentDj.user
-      } : null,
-      // Clean up the response by removing fields we don't need to send
-      djAffiliations: undefined
-    };
-
-    return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching club:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch club' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

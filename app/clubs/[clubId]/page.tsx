@@ -1,123 +1,107 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import { Star, MapPin, Music, Calendar, Clock, Phone, Globe } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
-import { GlowButton } from '@/components/ui/glow-button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { 
+  ArrowLeft, 
+  MapPin, 
+  Users, 
+  Star, 
+  Calendar, 
+  Music, 
+  Phone,
+  Globe,
+  Clock
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { LiveChat } from '@/components/live-chat';
-import { useEffect, useState } from 'react';
 
-// This will be replaced with real API call
-async function getClubData(clubId: string) {
-  // Simulated API call
-  const mockClub = {
-    id: clubId,
-    name: "Club XYZ",
-    image: "https://images.unsplash.com/photo-1566737236500-c8ac43014a67?auto=format&fit=crop&q=80",
-    currentDj: {
-      id: "dj1",
-      name: "DJ Awesome",
-      genre: "House"
-    },
-    rating: 4.7,
-    location: "123 Main St, New York, NY",
-    description: "Club XYZ is the premier nightlife destination featuring world-class DJs and an immersive sound system. Located in the heart of the city, we offer an unforgettable experience with state-of-the-art lighting and sound.",
-    openingHours: {
-      mon: "Closed",
-      tue: "Closed",
-      wed: "10 PM - 3 AM",
-      thu: "10 PM - 3 AM",
-      fri: "10 PM - 4 AM",
-      sat: "10 PM - 4 AM",
-      sun: "10 PM - 2 AM"
-    },
-    phone: "+1 (555) 123-4567",
-    website: "https://www.clubxyz.com",
-    social: {
-      instagram: "https://instagram.com/clubxyz",
-      twitter: "https://twitter.com/clubxyz",
-      facebook: "https://facebook.com/clubxyz"
-    },
-    events: [
-      {
-        id: "evt1",
-        name: "Summer Vibes",
-        date: "2023-06-15",
-        dj: {
-          id: "dj2",
-          name: "DJ Incredible"
-        }
-      },
-      {
-        id: "evt2",
-        name: "Neon Night",
-        date: "2023-06-22",
-        dj: {
-          id: "dj3",
-          name: "DJ Fantastic"
-        }
-      },
-      {
-        id: "evt3",
-        name: "House Party",
-        date: "2023-06-29",
-        dj: {
-          id: "dj1",
-          name: "DJ Awesome"
-        }
-      }
-    ]
+interface Club {
+  id: string;
+  name: string;
+  location: string;
+  address: string;
+  description: string;
+  rating: number;
+  capacity: number;
+  dresscode: string;
+  amenities: string[];
+  phone: string;
+  website: string;
+  image: string;
+  openingHours: any;
+  user: {
+    name: string;
+    email: string;
   };
-  
-  return mockClub;
+  events: Array<{
+    id: string;
+    name: string;
+    date: string;
+    dj: {
+      user: {
+        name: string;
+        image: string;
+      };
+    };
+  }>;
+  djSchedules: Array<{
+    id: string;
+    eventName: string;
+    startTime: string;
+    endTime: string;
+    dj: {
+      user: {
+        name: string;
+        image: string;
+      };
+    };
+  }>;
 }
 
-export default function ClubPage() {
-  const params = useParams();
-  const clubId = params?.clubId as string;
-  const [club, setClub] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+export default function ClubDetailPage() {
+  const { clubId } = useParams();
+  const router = useRouter();
+  const [club, setClub] = useState<Club | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function loadClub() {
+    const fetchClub = async () => {
       try {
-        setLoading(true);
-        // In a real app, this would be an API call
-        const data = await getClubData(clubId);
+        const response = await fetch(`/api/clubs/${clubId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch club');
+        }
+        const data = await response.json();
         setClub(data);
-      } catch (err) {
-        console.error('Error loading club:', err);
-        toast.error('Failed to load club information');
+      } catch (error) {
+        console.error('Error fetching club:', error);
+        toast.error('Failed to load club details');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
-    }
-    
+    };
+
     if (clubId) {
-      loadClub();
+      fetchClub();
     }
   }, [clubId]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-app-bg">
         <Navbar />
-        <div className="container max-w-4xl mx-auto py-8 px-4">
-          <div className="animate-pulse">
-            <div className="h-64 bg-app-surface/50 rounded-lg mb-6"></div>
-            <div className="h-8 bg-app-surface/50 rounded w-1/3 mb-4"></div>
-            <div className="h-4 bg-app-surface/50 rounded w-1/2 mb-2"></div>
-            <div className="h-4 bg-app-surface/50 rounded w-2/3 mb-6"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="h-64 bg-app-surface/50 rounded-lg"></div>
-              <div className="h-64 bg-app-surface/50 rounded-lg"></div>
-            </div>
+        <div className="container max-w-6xl mx-auto py-12 px-4">
+          <div className="animate-pulse space-y-6">
+            <div className="h-64 bg-app-surface/50 rounded-lg"></div>
+            <div className="h-32 bg-app-surface/50 rounded-lg"></div>
+            <div className="h-48 bg-app-surface/50 rounded-lg"></div>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -126,16 +110,20 @@ export default function ClubPage() {
     return (
       <div className="min-h-screen bg-app-bg">
         <Navbar />
-        <div className="container max-w-4xl mx-auto py-8 px-4 text-center">
-          <h1 className="text-2xl font-bold mb-4">Club Not Found</h1>
-          <p className="text-app-text/70 mb-6">
-            We couldn&apos;t find the club you&apos;re looking for.
-          </p>
-          <GlowButton href="/clubs">
-            View All Clubs
-          </GlowButton>
+        <div className="container max-w-4xl mx-auto py-12 px-4">
+          <Card>
+            <CardContent className="p-8 text-center">
+              <h1 className="text-2xl font-bold text-app-text mb-4">Club Not Found</h1>
+              <p className="text-app-text/70 mb-6">
+                The club you're looking for doesn't exist or has been removed.
+              </p>
+              <Button onClick={() => router.push('/clubs')}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Clubs
+              </Button>
+            </CardContent>
+          </Card>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -144,158 +132,213 @@ export default function ClubPage() {
     <div className="min-h-screen bg-app-bg">
       <Navbar />
       
-      <div className="relative">
-        {/* Hero Background */}
-        <div 
-          className="h-64 md:h-80 w-full bg-center bg-cover relative"
-          style={{ 
-            backgroundImage: `url(${club.image})` 
-          }}
+      <div className="container max-w-6xl mx-auto py-8 px-4">
+        <Button 
+          variant="outline" 
+          onClick={() => router.back()}
+          className="mb-6"
         >
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
+
+        {/* Hero Section */}
+        <div className="relative h-64 md:h-80 rounded-lg overflow-hidden mb-8">
+          <img 
+            src={club.image || '/default-club.jpg'} 
+            alt={club.name}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+          <div className="absolute bottom-6 left-6 right-6">
+            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+              {club.name}
+            </h1>
+            <div className="flex items-center gap-4 text-white/90">
+              <div className="flex items-center gap-1">
+                <MapPin className="w-4 h-4" />
+                <span>{club.location}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                <span>{club.rating.toFixed(1)}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Users className="w-4 h-4" />
+                <span>{club.capacity} capacity</span>
+              </div>
+            </div>
+          </div>
         </div>
-        
-        {/* Club Info Card */}
-        <div className="container max-w-4xl mx-auto px-4">
-          <div className="relative -mt-32">
-            <Card className="shadow-xl border-primary/10">
-              <CardContent className="p-6 md:p-8">
-                <div className="flex flex-col md:flex-row gap-6 items-start">
-                  {/* Club Logo */}
-                  <div className="hidden md:block relative bg-app-surface p-4 rounded-lg">
-                    <div className="bg-gradient-to-br from-electric-blue to-neon-purple w-24 h-24 rounded-lg flex items-center justify-center">
-                      <Music className="w-12 h-12 text-white" />
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* About */}
+            <Card>
+              <CardHeader>
+                <CardTitle>About {club.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-app-text/80 mb-4">
+                  {club.description || 'No description available.'}
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-semibold text-app-text mb-2">Details</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-app-text/60" />
+                        <span>{club.address}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-app-text/60" />
+                        <span>Capacity: {club.capacity}</span>
+                      </div>
+                      {club.dresscode && (
+                        <div className="flex items-center gap-2">
+                          <span className="w-4 h-4 text-center text-app-text/60">👔</span>
+                          <span>Dress code: {club.dresscode}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
-                  {/* Club Info */}
-                  <div className="flex-1">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <div>
-                        <h1 className="text-2xl md:text-3xl font-bold">{club.name}</h1>
-                        <div className="flex items-center text-app-text/70 mt-1">
-                          <MapPin className="w-4 h-4 mr-1" />
-                          <span className="text-sm">{club.location}</span>
+                  <div>
+                    <h4 className="font-semibold text-app-text mb-2">Contact</h4>
+                    <div className="space-y-2 text-sm">
+                      {club.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-4 h-4 text-app-text/60" />
+                          <span>{club.phone}</span>
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-1">
-                        <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                        <span className="font-medium">{club.rating}</span>
-                        <span className="text-app-text/70 text-sm">/5</span>
-                      </div>
+                      )}
+                      {club.website && (
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-4 h-4 text-app-text/60" />
+                          <a 
+                            href={club.website} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-electric-pink hover:underline"
+                          >
+                            Website
+                          </a>
+                        </div>
+                      )}
                     </div>
-                    
-                    <p className="mt-4 text-app-text/80">
-                      {club.description}
-                    </p>
-                    
-                    {club.currentDj && (
-                      <div className="mt-4 p-3 bg-electric-blue/10 rounded-md">
-                        <p className="text-sm flex items-center">
-                          <Music className="w-4 h-4 mr-2 text-electric-blue" />
-                          <span>
-                            <span className="font-semibold">{club.currentDj.name}</span> is currently spinning {club.currentDj.genre}
-                          </span>
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
+
+                {/* Amenities */}
+                {club.amenities && club.amenities.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="font-semibold text-app-text mb-3">Amenities</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {club.amenities.map((amenity, index) => (
+                        <Badge key={index} variant="secondary">
+                          {amenity}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upcoming Events */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  Upcoming Events
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {club.events && club.events.length > 0 ? (
+                  <div className="space-y-4">
+                    {club.events.map((event) => (
+                      <div key={event.id} className="flex items-center gap-4 p-4 border border-app-surface rounded-lg">
+                        <img 
+                          src={event.dj.user.image || '/default-dj.jpg'} 
+                          alt={event.dj.user.name}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-app-text">{event.name}</h4>
+                          <p className="text-sm text-app-text/70">
+                            with {event.dj.user.name}
+                          </p>
+                          <p className="text-xs text-app-text/60">
+                            {new Date(event.date).toLocaleDateString()} at{' '}
+                            {new Date(event.date).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-app-text/60 text-center py-8">
+                    No upcoming events scheduled.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {club.website && (
+                  <Button asChild className="w-full">
+                    <a href={club.website} target="_blank" rel="noopener noreferrer">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Visit Website
+                    </a>
+                  </Button>
+                )}
+                <Button variant="outline" className="w-full">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  View All Events
+                </Button>
+                <Button variant="outline" className="w-full">
+                  <Music className="w-4 h-4 mr-2" />
+                  See DJs
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Opening Hours */}
+            {club.openingHours && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="w-5 h-5" />
+                    Opening Hours
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm">
+                    {Object.entries(club.openingHours).map(([day, hours]) => (
+                      <div key={day} className="flex justify-between">
+                        <span className="capitalize">{day}</span>
+                        <span className="text-app-text/70">{hours as string}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
-      
-      <div className="container max-w-4xl mx-auto py-8 px-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Details Section */}
-          <Card>
-            <CardContent className="p-4">
-              <h2 className="text-lg font-semibold mb-4">Club Details</h2>
-              
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="bg-app-surface/50 p-2 rounded-md">
-                    <Clock className="w-5 h-5 text-neon-cyan" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium">Opening Hours</h3>
-                    <div className="text-sm text-app-text/70 mt-1 space-y-1">
-                      <p>Monday: {club.openingHours.mon}</p>
-                      <p>Tuesday: {club.openingHours.tue}</p>
-                      <p>Wednesday: {club.openingHours.wed}</p>
-                      <p>Thursday: {club.openingHours.thu}</p>
-                      <p>Friday: {club.openingHours.fri}</p>
-                      <p>Saturday: {club.openingHours.sat}</p>
-                      <p>Sunday: {club.openingHours.sun}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="bg-app-surface/50 p-2 rounded-md">
-                    <Phone className="w-5 h-5 text-neon-cyan" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium">Contact Information</h3>
-                    <div className="text-sm text-app-text/70 mt-1">
-                      <p>Phone: {club.phone}</p>
-                      <p className="mt-1">
-                        Website: <a href={club.website} target="_blank" rel="noopener noreferrer" className="text-neon-cyan hover:underline">{club.website}</a>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Upcoming Events */}
-          <Card>
-            <CardContent className="p-4">
-              <h2 className="text-lg font-semibold mb-4">Upcoming Events</h2>
-              
-              <div className="space-y-3">
-                {club.events.map((event: any) => (
-                  <div key={event.id} className="p-3 bg-app-surface/50 rounded-md">
-                    <h3 className="font-medium text-electric-pink">{event.name}</h3>
-                    <div className="text-sm text-app-text/70 mt-1">
-                      <p className="flex items-center">
-                        <Calendar className="w-3.5 h-3.5 mr-1.5" />
-                        {new Date(event.date).toLocaleDateString('en-US', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                      <p className="flex items-center mt-1">
-                        <Music className="w-3.5 h-3.5 mr-1.5" />
-                        {event.dj.name}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-      
-      {/* Live Chat Component */}
-      {club.currentDj && (
-        <LiveChat 
-          clubId={clubId} 
-          clubName={club.name}
-          currentDj={{
-            id: club.currentDj.id,
-            name: club.currentDj.name
-          }}
-        />
-      )}
-      
+
       <Footer />
     </div>
   );
