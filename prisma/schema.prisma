@@ -65,6 +65,9 @@ model User {
   djFollowing     FanFollowing[] @relation("UserFanFollowings")
   chatMessages    ChatMessage[]
   messageReactions MessageReaction[]
+  notifications   Notification[]
+  notificationPreferences NotificationPreference?
+  pushSubscriptions PushSubscription[]
 }
 
 model VerificationToken {
@@ -314,6 +317,68 @@ model MessageReaction {
   
   @@unique([messageId, userId, emoji])
   @@index([messageId])
+}
+
+// Notification system models
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  type        NotificationType
+  title       String
+  message     String
+  data        Json?            // Additional data for the notification
+  isRead      Boolean          @default(false)
+  actionUrl   String?          // URL to navigate when notification is clicked
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model NotificationPreference {
+  id                    String  @id @default(cuid())
+  userId                String  @unique
+  emailNotifications    Boolean @default(true)
+  pushNotifications     Boolean @default(true)
+  djLiveNotifications   Boolean @default(true)
+  newFollowerNotifications Boolean @default(true)
+  eventReminders        Boolean @default(true)
+  chatMentions          Boolean @default(true)
+  momentLikes           Boolean @default(true)
+  systemUpdates         Boolean @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, endpoint])
+  @@index([userId])
+}
+
+enum NotificationType {
+  DJ_LIVE              // DJ went live
+  NEW_FOLLOWER         // Someone followed you
+  EVENT_REMINDER       // Upcoming event reminder
+  CHAT_MENTION         // Mentioned in chat
+  MOMENT_LIKE          // Someone liked your moment
+  MOMENT_COMMENT       // Someone commented on your moment
+  SYSTEM_UPDATE        // System announcements
+  DJ_RATING            // Your DJ performance was rated
+  EVENT_CREATED        // New event in followed club/DJ
+  CLUB_UPDATE          // Club you follow has updates
 }
 
 enum RoomType {
