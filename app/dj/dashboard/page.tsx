@@ -343,7 +343,7 @@ export default function DJDashboard() {
               <LiveStreamingAnalytics
                 djId={djProfile?.id || ''}
                 isCurrentlyLive={djProfile?.status === 'PERFORMING'}
-                currentListeners={onlineUsers}
+                currentListeners={0} // This would be tracked via socket/API in real implementation
                 sessionDuration={0} // This would come from session tracking
               />
               
