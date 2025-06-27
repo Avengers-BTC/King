@@ -13,11 +13,6 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only fans can follow DJs
-    if (session.user.role !== 'USER') {
-      return NextResponse.json({ error: 'Only fans can follow DJs' }, { status: 403 });
-    }
-
     const { djId } = params;
 
     // Check if DJ exists
@@ -30,26 +25,44 @@ export async function POST(
     }
 
     // Check if already following
-    const existingFollow = await prisma.fanFollowing.findFirst({
+    const existingFollow = await prisma.fanFollowing.findUnique({
       where: {
-        djId,
-        userId: session.user.id
+        userId_djId: {
+          userId: session.user.id,
+          djId
+        }
       }
     });
 
     if (existingFollow) {
-      return NextResponse.json({ error: 'Already following this DJ' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Already following this DJ' },
+        { status: 400 }
+      );
     }
 
     // Create the follow relationship
     await prisma.fanFollowing.create({
       data: {
-        djId,
-        userId: session.user.id
+        userId: session.user.id,
+        djId
       }
     });
 
-    return NextResponse.json({ message: 'Successfully followed DJ' });
+    // Update DJ fans count
+    await prisma.dj.update({
+      where: { id: djId },
+      data: {
+        fans: {
+          increment: 1
+        }
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Successfully followed DJ'
+    });
 
   } catch (error) {
     console.error('Error following DJ:', error);
@@ -70,26 +83,37 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only fans can unfollow DJs
-    if (session.user.role !== 'USER') {
-      return NextResponse.json({ error: 'Only fans can unfollow DJs' }, { status: 403 });
-    }
-
     const { djId } = params;
 
     // Remove the follow relationship
     const deleted = await prisma.fanFollowing.deleteMany({
       where: {
-        djId,
-        userId: session.user.id
+        userId: session.user.id,
+        djId
       }
     });
 
     if (deleted.count === 0) {
-      return NextResponse.json({ error: 'Not following this DJ' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Not following this DJ' },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({ message: 'Successfully unfollowed DJ' });
+    // Update DJ fans count
+    await prisma.dj.update({
+      where: { id: djId },
+      data: {
+        fans: {
+          decrement: 1
+        }
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Successfully unfollowed DJ'
+    });
 
   } catch (error) {
     console.error('Error unfollowing DJ:', error);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, MapPin, Star } from 'lucide-react';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
@@ -8,8 +8,7 @@ import { ClubCard } from '@/components/club-card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// Mock data - Replace with real data from your API
-const allClubs: Array<{
+interface Club {
   id: string;
   name: string;
   location: string;
@@ -23,32 +22,38 @@ const allClubs: Array<{
       };
     };
   }>;
-}> = [
-  // Add your real clubs here when you create them
-  // Example structure:
-  // {
-  //   id: '1',
-  //   name: 'Club Name',
-  //   location: 'Nairobi, Kenya',
-  //   image: 'image-url',
-  //   rating: 4.5,
-  //   events: [
-  //     {
-  //       name: 'Event Name',
-  //       dj: {
-  //         user: {
-  //           name: 'DJ Name'
-  //         }
-  //       }
-  //     }
-  //   ]
-  // }
-];
+}
 
 export default function ClubsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedRating, setSelectedRating] = useState('all');
+  const [allClubs, setAllClubs] = useState<Club[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch clubs from API
+  useEffect(() => {
+    const fetchClubs = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/clubs');
+        if (response.ok) {
+          const data = await response.json();
+          setAllClubs(Array.isArray(data) ? data : []);
+        } else {
+          console.error('Failed to fetch clubs:', response.status);
+          setAllClubs([]);
+        }
+      } catch (error) {
+        console.error('Error fetching clubs:', error);
+        setAllClubs([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchClubs();
+  }, []);
 
   const filteredClubs = allClubs.filter(club => {
     const matchesSearch = club.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -119,21 +124,44 @@ export default function ClubsPage() {
           </div>
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {Array(6).fill(0).map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="bg-app-surface/50 rounded-lg h-[300px]" />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Results */}
-        <div className="mb-6">
-          <p className="text-app-text/70">
-            Showing {filteredClubs.length} of {allClubs.length} clubs
-          </p>
-        </div>
+        {!isLoading && (
+          <div className="mb-6">
+            <p className="text-app-text/70">
+              Showing {filteredClubs.length} of {allClubs.length} clubs
+            </p>
+          </div>
+        )}
 
         {/* Club Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredClubs.map((club) => (
-            <ClubCard key={club.id} {...club} />
-          ))}
-        </div>
+        {!isLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredClubs.map((club) => (
+              <ClubCard key={club.id} {...club} />
+            ))}
+          </div>
+        )}
 
-        {filteredClubs.length === 0 && (
+        {!isLoading && filteredClubs.length === 0 && allClubs.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-app-text/60 text-lg mb-4">
+              No clubs have been added yet. Be the first to add your club!
+            </p>
+          </div>
+        )}
+
+        {!isLoading && filteredClubs.length === 0 && allClubs.length > 0 && (
           <div className="text-center py-12">
             <p className="text-app-text/60 text-lg">
               No clubs found matching your criteria. Try adjusting your search or filters.
