@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { LiveSession } from '@/components/live-session';
+import { LiveStreamingAnalytics } from '@/components/ui/live-streaming-analytics';
 import { DeleteProfileModal } from '@/components/delete-profile-modal';
 import { getDjChatRoomId } from '@/lib/chat-room-utils';
 
@@ -331,12 +332,19 @@ export default function DJDashboard() {
             </div>
           </TabsContent>
 
-          <TabsContent value="live">
+                      <TabsContent value="live">
             <div className="space-y-6">
               <LiveSession
                 djId={djProfile?.id || ''}
                 djName={djProfile?.user?.name || ''}
                 clubs={[]}  // You can pass actual clubs data here
+              />
+              
+              <LiveStreamingAnalytics
+                djId={djProfile?.id || ''}
+                isCurrentlyLive={djProfile?.status === 'PERFORMING'}
+                currentListeners={onlineUsers}
+                sessionDuration={0} // This would come from session tracking
               />
               
               {/* Enhanced DJ Live Host Panel */}

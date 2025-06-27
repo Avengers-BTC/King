@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Radio, MessageCircle, Users } from 'lucide-react';
+import { Radio, MessageCircle, Users, Calendar, Clock, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSocket } from '@/contexts/socket-context';
 import { getDjChatRoomId } from '@/lib/chat-room-utils';
@@ -26,36 +26,156 @@ interface LiveSessionProps {
   }>;
 }
 
+interface Club {
+  id: string;
+  name: string;
+  image?: string;
+  location?: string;
+}
+
 export function LiveSession({ djId, djName, clubs = [] }: LiveSessionProps) {
   const router = useRouter();
   const [selectedClub, setSelectedClub] = useState<string>('');
   const [currentRoomId, setCurrentRoomId] = useState<string>('');
+  const [availableClubs, setAvailableClubs] = useState<Club[]>([]);
+  const [isLoadingClubs, setIsLoadingClubs] = useState(true);
+  const [listeners, setListeners] = useState(0);
+  const [sessionDuration, setSessionDuration] = useState(0);
   const { socket, djLiveStatus, isDjLive, liveRooms } = useSocket();
   
   // Check if DJ is currently live
   const isLive = isDjLive(djId);
 
-  const handleGoLive = () => {
+  // Fetch available clubs
+  useEffect(() => {
+    const fetchClubs = async () => {
+      try {
+        if (clubs.length > 0) {
+          setAvailableClubs(clubs);
+          setIsLoadingClubs(false);
+          return;
+        }
+
+        const response = await fetch('/api/clubs');
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableClubs(data.clubs || []);
+        } else {
+          // Fallback to mock data if API fails
+          setAvailableClubs([
+            { id: 'club1', name: 'Club XYZ', location: 'Downtown' },
+            { id: 'club2', name: 'The Venue', location: 'City Center' },
+            { id: 'club3', name: 'Nightclub One', location: 'Uptown' },
+          ]);
+        }
+      } catch (error) {
+        console.error('Error fetching clubs:', error);
+        // Fallback to mock data
+        setAvailableClubs([
+          { id: 'club1', name: 'Club XYZ', location: 'Downtown' },
+          { id: 'club2', name: 'The Venue', location: 'City Center' },
+          { id: 'club3', name: 'Nightclub One', location: 'Uptown' },
+        ]);
+      } finally {
+        setIsLoadingClubs(false);
+      }
+    };
+
+    fetchClubs();
+  }, [clubs]);
+
+  // Track session duration when live
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isLive) {
+      interval = setInterval(() => {
+        setSessionDuration(prev => prev + 1);
+      }, 1000);
+    } else {
+      setSessionDuration(0);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isLive]);
+
+  // Listen for room updates to track listeners
+  useEffect(() => {
+    if (socket && currentRoomId) {
+      socket.on('room_users_update', (data) => {
+        if (data.roomId === currentRoomId) {
+          setListeners(data.userCount || 0);
+        }
+      });
+
+      return () => {
+        socket.off('room_users_update');
+      };
+    }
+  }, [socket, currentRoomId]);
+
+  const handleGoLive = async () => {
     if (!selectedClub) {
       toast.error('Please select a club first');
       return;
     }
 
-    const roomId = getDjChatRoomId(djId, selectedClub);
-    setCurrentRoomId(roomId);
-    djLiveStatus(roomId, true, djName, djId);
-    toast.success('You are now live! 🎵');
+    try {
+      const roomId = getDjChatRoomId(djId, selectedClub);
+      setCurrentRoomId(roomId);
+      
+      // Start live session via API
+      const response = await fetch(`/api/live/${djId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'start',
+          clubId: selectedClub 
+        }),
+      });
+
+      if (response.ok) {
+        djLiveStatus(roomId, true, djName, djId);
+        toast.success('You are now live! 🎵');
+      } else {
+        throw new Error('Failed to start session');
+      }
+    } catch (error) {
+      console.error('Error going live:', error);
+      toast.error('Failed to start live session');
+    }
   };
 
-  const handleEndSession = () => {
+  const handleEndSession = async () => {
     if (!currentRoomId) {
       toast.error('No active session to end');
       return;
     }
 
-    djLiveStatus(currentRoomId, false, djName, djId);
-    setCurrentRoomId('');
-    toast.info('Live session ended');
+    try {
+      // End live session via API
+      const response = await fetch(`/api/live/${djId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'end'
+        }),
+      });
+
+      if (response.ok) {
+        djLiveStatus(currentRoomId, false, djName, djId);
+        setCurrentRoomId('');
+        setListeners(0);
+        toast.info('Live session ended');
+      } else {
+        throw new Error('Failed to end session');
+      }
+    } catch (error) {
+      console.error('Error ending session:', error);
+      toast.error('Failed to end session');
+    }
   };
 
   const handleJoinChat = () => {
@@ -63,12 +183,16 @@ export function LiveSession({ djId, djName, clubs = [] }: LiveSessionProps) {
     router.push(`/chat/${roomId}`);
   };
 
-  // For testing, add some mock clubs if none provided
-  const availableClubs = clubs.length > 0 ? clubs : [
-    { id: 'club1', name: 'Club XYZ' },
-    { id: 'club2', name: 'The Venue' },
-    { id: 'club3', name: 'Nightclub One' },
-  ];
+  const formatDuration = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -77,9 +201,15 @@ export function LiveSession({ djId, djName, clubs = [] }: LiveSessionProps) {
           <CardTitle className="flex items-center justify-between">
             <span>Live Session</span>
             {isLive && (
-              <Badge variant="destructive" className="animate-pulse">
-                LIVE
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="destructive" className="animate-pulse">
+                  LIVE
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  <Clock className="w-3 h-3 mr-1" />
+                  {formatDuration(sessionDuration)}
+                </Badge>
+              </div>
             )}
           </CardTitle>
         </CardHeader>
@@ -90,26 +220,50 @@ export function LiveSession({ djId, djName, clubs = [] }: LiveSessionProps) {
               <Select
                 value={selectedClub}
                 onValueChange={setSelectedClub}
-                disabled={isLive}
+                disabled={isLive || isLoadingClubs}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a club" />
+                  <SelectValue placeholder={isLoadingClubs ? "Loading clubs..." : "Select a club"} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableClubs.map((club) => (
                     <SelectItem key={club.id} value={club.id}>
-                      {club.name}
+                      <div className="flex flex-col">
+                        <span>{club.name}</span>
+                        {club.location && (
+                          <span className="text-xs text-muted-foreground">{club.location}</span>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {isLive && (
+              <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-md">
+                <div className="text-center">
+                  <div className="text-sm text-muted-foreground">Listeners</div>
+                  <div className="text-xl font-bold flex items-center justify-center gap-1">
+                    <Users className="w-4 h-4" />
+                    {listeners}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-sm text-muted-foreground">Duration</div>
+                  <div className="text-xl font-bold flex items-center justify-center gap-1">
+                    <Activity className="w-4 h-4" />
+                    {formatDuration(sessionDuration)}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2">
               {!isLive ? (
                 <Button
                   onClick={handleGoLive}
-                  disabled={!selectedClub}
+                  disabled={!selectedClub || isLoadingClubs}
                   className="bg-green-500 hover:bg-green-600"
                 >
                   <Radio className="w-4 h-4 mr-2 animate-pulse" />
@@ -165,7 +319,7 @@ export function LiveSession({ djId, djName, clubs = [] }: LiveSessionProps) {
               <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Users className="w-3 h-3" />
-                  <span>Live audience waiting</span>
+                  <span>{listeners} listening</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Radio className="w-3 h-3 animate-pulse" />
