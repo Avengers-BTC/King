@@ -115,7 +115,7 @@ export default function ClubDetailPage() {
             <CardContent className="p-8 text-center">
               <h1 className="text-2xl font-bold text-app-text mb-4">Club Not Found</h1>
               <p className="text-app-text/70 mb-6">
-                The club you're looking for doesn't exist or has been removed.
+                The club you&apos;re looking for doesn&apos;t exist or has been removed.
               </p>
               <Button onClick={() => router.push('/clubs')}>
                 <ArrowLeft className="w-4 h-4 mr-2" />

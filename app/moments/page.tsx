@@ -40,6 +40,7 @@ export default function MomentsPage() {
 
   useEffect(() => {
     fetchMoments();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchMoments = async () => {
