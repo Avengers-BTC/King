@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PWAStatus } from '@/components/pwa-status';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -118,6 +119,9 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-4">
+            {/* PWA Status */}
+            <PWAStatus />
+            
             {/* Theme toggle */}
             <Button
               variant="ghost"
