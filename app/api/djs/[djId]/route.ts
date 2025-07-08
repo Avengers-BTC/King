@@ -23,10 +23,18 @@ interface UpdateDJBody {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { djId: string } }
+  context: { params: { djId: string } }
 ) {
   try {
-    const { djId } = params;
+    const { params } = context;
+    const { djId } = await params;
+
+    if (!isValidId(djId)) {
+      return NextResponse.json(
+        { error: 'Invalid DJ ID provided' },
+        { status: 400 }
+      );
+    }
 
     const dj = await prisma.dj.findUnique({
       where: { id: djId },
@@ -125,10 +133,12 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { djId: string } }
+  context: { params: { djId: string } }
 ) {
   try {
-    if (!isValidId(params.djId)) {
+    const { params } = context;
+    const { djId } = await params;
+    if (!isValidId(djId)) {
       return NextResponse.json(
         { error: 'Invalid DJ ID provided' },
         { status: 400 }
