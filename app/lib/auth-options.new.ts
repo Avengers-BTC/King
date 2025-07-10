@@ -63,50 +63,29 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
         try {
-          if (!credentials?.email || !credentials?.password) {
-            throw new Error('Missing email or password');
-          }
-
           const user = await prisma.user.findUnique({
-            where: {
-              email: credentials.email
-            },
-            select: {
-              id: true,
-              email: true,
-              name: true,
-              password: true,
-              role: true,
-              image: true
-            }
+            where: { email: credentials.email }
           });
-
           if (!user || !user.password) {
-            throw new Error('No user found with this email');
+            return null;
           }
-
-          const isPasswordValid = await bcrypt.compare(
-            credentials.password,
-            user.password
-          );
-
-          if (!isPasswordValid) {
-            throw new Error('Invalid password');
+          const isValidPassword = await bcrypt.compare(credentials.password, user.password);
+          if (!isValidPassword) {
+            return null;
           }
-
           return {
             id: user.id,
             email: user.email,
             name: user.name,
-            image: user.image,
             role: user.role,
+            image: user.image,
           };
         } catch (error) {
-          // Log error in production but don't expose details
-          if (process.env.NODE_ENV === 'production') {
-            console.error('[Auth] Error:', error);
-          }
+          console.error("Auth error:", error);
           return null;
         }
       }
@@ -141,7 +120,7 @@ export const authOptions: NextAuthOptions = {
           await prisma.user.create({
             data: {
               email: profile.email,
-              name: profile.name ?? profile.email.split('@')[0],
+              name: profile.name,
               image: profile.image,
               role: 'USER',
             }

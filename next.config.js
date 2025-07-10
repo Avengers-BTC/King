@@ -13,6 +13,21 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['bcryptjs'],
   },
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      querystring: require.resolve('querystring-es3'),
+      https: require.resolve('https-browserify'),
+      http: require.resolve('stream-http'),
+      crypto: require.resolve('crypto-browserify'),
+      stream: require.resolve('stream-browserify'),
+      os: require.resolve('os-browserify'),
+      url: require.resolve('url'),
+      assert: require.resolve('assert'),
+      buffer: require.resolve('buffer'),
+    };
+    return config;
+  },
 };
 
 module.exports = nextConfig;

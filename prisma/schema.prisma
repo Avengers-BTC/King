@@ -1,7 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
-  // This will make Prisma print the exact database URL it's using
-  // during generation, which can help debug connection issues
+  provider        = "prisma-client-js"
   previewFeatures = ["tracing"]
 }
 
@@ -37,34 +35,37 @@ model Session {
 }
 
 model User {
-  id              String       @id @default(cuid())
-  name            String?
-  email           String?      @unique
-  emailVerified   DateTime?
-  image           String?
-  password        String?
-  role            UserRole     @default(USER)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  bio             String?
-  followers       Int          @default(0)
-  following       Int          @default(0)
-  joinDate        DateTime     @default(now())
-  location        String?
-  username        String?      @unique
-  accounts        Account[]
-  club            Club?
-  comments        Comment[]
-  dj              Dj?
-  followingUsers  Follow[]     @relation("UserFollowing")
-  followedByUsers Follow[]     @relation("UserFollowers")
-  moments         Moment[]
-  likedMoments    MomentLike[]
-  sessions        Session[]
-  djRatings       DjRating[]
-  djFollowing     FanFollowing[] @relation("UserFanFollowings")
-  chatMessages    ChatMessage[]
-  messageReactions MessageReaction[]
+  id                     String                  @id @default(cuid())
+  name                   String?
+  email                  String?                 @unique
+  emailVerified          DateTime?
+  image                  String?
+  password               String?
+  role                   UserRole                @default(USER)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  bio                    String?
+  followers              Int                     @default(0)
+  following              Int                     @default(0)
+  joinDate               DateTime                @default(now())
+  location               String?
+  username               String?                 @unique
+  accounts               Account[]
+  chatMessages           ChatMessage[]
+  club                   Club?
+  comments               Comment[]
+  dj                     Dj?
+  djRatings              DjRating[]
+  djFollowing            FanFollowing[]          @relation("UserFanFollowings")
+  followingUsers         Follow[]                @relation("UserFollowing")
+  followedByUsers        Follow[]                @relation("UserFollowers")
+  messageReactions       MessageReaction[]
+  moments                Moment[]
+  likedMoments           MomentLike[]
+  Notification           Notification[]
+  NotificationPreference NotificationPreference?
+  PushSubscription       PushSubscription[]
+  sessions               Session[]
 }
 
 model VerificationToken {
@@ -76,107 +77,94 @@ model VerificationToken {
 }
 
 model Dj {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  genres      String[]
-  rating      Float    @default(0)
-  fans        Int      @default(0)
-  bio         String?
-  currentClub String?
-  status      DJStatus @default(OFFLINE)
-  instagram   String?
-  twitter     String?
-  facebook    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id])
-  events      Event[]
-  schedule    DjSchedule[]
-  history     DjPerformanceHistory[]
+  id           String                 @id @default(cuid())
+  userId       String                 @unique
+  genres       String[]
+  rating       Float                  @default(0)
+  fans         Int                    @default(0)
+  bio          String?
+  currentClub  String?
+  status       DJStatus               @default(OFFLINE)
+  instagram    String?
+  twitter      String?
+  facebook     String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  user         User                   @relation(fields: [userId], references: [id])
   affiliations DjClubAffiliation[]
-  ratings     DjRating[]
-  fanFollowers FanFollowing[] @relation("DJFanFollowers")
-}
-
-enum DJStatus {
-  OFFLINE
-  PERFORMING
-  SCHEDULED
-  ON_BREAK
+  history      DjPerformanceHistory[]
+  ratings      DjRating[]
+  schedule     DjSchedule[]
+  events       Event[]
+  fanFollowers FanFollowing[]         @relation("DJFanFollowers")
 }
 
 model DjSchedule {
-  id          String    @id @default(cuid())
-  djId        String
-  clubId      String
-  startTime   DateTime
-  endTime     DateTime
-  eventName   String?
-  isRecurring Boolean   @default(false)
+  id            String   @id @default(cuid())
+  djId          String
+  clubId        String
+  startTime     DateTime
+  endTime       DateTime
+  eventName     String?
+  isRecurring   Boolean  @default(false)
   recurringDays String[] @default([])
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  dj          Dj        @relation(fields: [djId], references: [id])
-  club        Club      @relation(fields: [clubId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  club          Club     @relation(fields: [clubId], references: [id])
+  dj            Dj       @relation(fields: [djId], references: [id])
 }
 
 model DjPerformanceHistory {
-  id          String    @id @default(cuid())
-  djId        String
-  clubId      String
-  startTime   DateTime
-  endTime     DateTime
-  eventName   String?
-  rating      Float?
-  attendance  Int?
-  notes       String?
-  createdAt   DateTime  @default(now())
-  dj          Dj        @relation(fields: [djId], references: [id])
-  club        Club      @relation(fields: [clubId], references: [id])
+  id         String   @id @default(cuid())
+  djId       String
+  clubId     String
+  startTime  DateTime
+  endTime    DateTime
+  eventName  String?
+  rating     Float?
+  attendance Int?
+  notes      String?
+  createdAt  DateTime @default(now())
+  club       Club     @relation(fields: [clubId], references: [id])
+  dj         Dj       @relation(fields: [djId], references: [id])
 }
 
 model DjClubAffiliation {
-  id          String       @id @default(cuid())
-  djId        String
-  clubId      String
-  type        AffiliationType
-  startDate   DateTime
-  endDate     DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  dj          Dj          @relation(fields: [djId], references: [id])
-  club        Club        @relation(fields: [clubId], references: [id])
-}
-
-enum AffiliationType {
-  RESIDENT
-  GUEST
-  FEATURED
+  id        String          @id @default(cuid())
+  djId      String
+  clubId    String
+  type      AffiliationType
+  startDate DateTime
+  endDate   DateTime?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  club      Club            @relation(fields: [clubId], references: [id])
+  dj        Dj              @relation(fields: [djId], references: [id])
 }
 
 model Club {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  name        String
-  location    String
-  address     String
-  description String?
-  rating      Float    @default(0)
-  capacity    Int
-  dresscode   String?
-  amenities   String[] @default([])
-  phone       String?
-  website     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  image       String?
-  isActive    Boolean  @default(true)
-  openingHours Json?
-  user        User     @relation(fields: [userId], references: [id])
-  events      Event[]
-  djSchedules DjSchedule[]
-  djHistory   DjPerformanceHistory[]
+  id             String                 @id @default(cuid())
+  userId         String                 @unique
+  name           String
+  location       String
+  address        String
+  description    String?
+  rating         Float                  @default(0)
+  capacity       Int
+  dresscode      String?
+  amenities      String[]               @default([])
+  phone          String?
+  website        String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  image          String?
+  isActive       Boolean                @default(true)
+  openingHours   Json?
+  user           User                   @relation(fields: [userId], references: [id])
   djAffiliations DjClubAffiliation[]
+  djHistory      DjPerformanceHistory[]
+  djSchedules    DjSchedule[]
+  events         Event[]
 }
 
 model Event {
@@ -194,13 +182,13 @@ model Event {
 model Moment {
   id        String       @id @default(cuid())
   title     String
-  caption   String?
   image     String
   location  String?
   type      String       @default("image")
   userId    String
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+  caption   String?
   comments  Comment[]
   user      User         @relation(fields: [userId], references: [id])
   likes     MomentLike[]
@@ -246,8 +234,8 @@ model DjRating {
   rating    Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   dj        Dj       @relation(fields: [djId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, djId])
 }
@@ -257,48 +245,40 @@ model FanFollowing {
   userId    String
   djId      String
   createdAt DateTime @default(now())
-  user      User     @relation("UserFanFollowings", fields: [userId], references: [id], onDelete: Cascade)
   dj        Dj       @relation("DJFanFollowers", fields: [djId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserFanFollowings", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, djId])
 }
 
-enum UserRole {
-  USER
-  DJ
-  CLUB_OWNER
-  ADMIN
-}
-
-// Chat system models
 model ChatRoom {
-  id          String      @id @default(cuid())
-  name        String?
-  type        RoomType    @default(PUBLIC)
-  djId        String?     // For DJ fan rooms
-  clubId      String?     // For club rooms
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  messages    ChatMessage[]
-  
+  id        String        @id @default(cuid())
+  name      String?
+  type      RoomType      @default(PUBLIC)
+  djId      String?
+  clubId    String?
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+
   @@index([djId])
   @@index([clubId])
 }
 
 model ChatMessage {
-  id          String         @id @default(cuid())
+  id          String            @id @default(cuid())
   roomId      String
   senderId    String
   message     String
-  messageType MessageType    @default(TEXT)
-  format      Json?          // Store formatting data as JSON
+  messageType MessageType       @default(TEXT)
+  format      Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  room        ChatRoom          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender      User              @relation(fields: [senderId], references: [id])
   reactions   MessageReaction[]
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  room        ChatRoom       @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  sender      User           @relation(fields: [senderId], references: [id])
-  
+
   @@index([roomId, createdAt])
   @@index([senderId])
 }
@@ -311,9 +291,77 @@ model MessageReaction {
   createdAt DateTime    @default(now())
   message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
   user      User        @relation(fields: [userId], references: [id])
-  
+
   @@unique([messageId, userId, emoji])
   @@index([messageId])
+}
+
+model Notification {
+  id        String           @id
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false)
+  actionUrl String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime
+  User      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId, isRead])
+}
+
+model NotificationPreference {
+  id                       String   @id
+  userId                   String   @unique
+  emailNotifications       Boolean  @default(true)
+  pushNotifications        Boolean  @default(true)
+  djLiveNotifications      Boolean  @default(true)
+  newFollowerNotifications Boolean  @default(true)
+  eventReminders           Boolean  @default(true)
+  chatMentions             Boolean  @default(true)
+  momentLikes              Boolean  @default(true)
+  systemUpdates            Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime
+  User                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id        String   @id
+  userId    String
+  endpoint  String
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+}
+
+enum DJStatus {
+  OFFLINE
+  PERFORMING
+  SCHEDULED
+  ON_BREAK
+}
+
+enum AffiliationType {
+  RESIDENT
+  GUEST
+  FEATURED
+}
+
+enum UserRole {
+  USER
+  DJ
+  CLUB_OWNER
+  ADMIN
 }
 
 enum RoomType {
@@ -327,4 +375,17 @@ enum MessageType {
   TEXT
   SYSTEM
   EMOJI
+}
+
+enum NotificationType {
+  DJ_LIVE
+  NEW_FOLLOWER
+  EVENT_REMINDER
+  CHAT_MENTION
+  MOMENT_LIKE
+  MOMENT_COMMENT
+  SYSTEM_UPDATE
+  DJ_RATING
+  EVENT_CREATED
+  CLUB_UPDATE
 }
