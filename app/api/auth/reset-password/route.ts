@@ -98,7 +98,7 @@ export async function POST(req: Request) {
 
       // Remove used token
       if (passwordReset) {
-        await (prisma as any).passwordReset.delete({
+        await prisma.passwordReset.delete({
           where: { id: passwordReset.id },
         });
       }

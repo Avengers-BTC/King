@@ -51,7 +51,7 @@ export default function ProfileSettings() {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       name: session?.user?.name || '',
-      username: '',
+      username: session?.user?.username || '',
       bio: '',
       location: '',
     },
