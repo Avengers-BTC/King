@@ -54,9 +54,8 @@ export async function POST(req: Request) {
 
     // Generate email content
     const { subject, html } = generatePasswordResetEmail(
-      email,
       resetToken,
-      user.name || undefined
+      user.name || 'User'
     );
 
     // Send password reset email

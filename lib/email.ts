@@ -75,7 +75,6 @@ export async function sendEmail({ to, subject, html }: MailOptions) {
 }
 
 export function generatePasswordResetEmail(
-  userEmail: string, 
   resetToken: string,
   userName: string = 'User'
 ) {

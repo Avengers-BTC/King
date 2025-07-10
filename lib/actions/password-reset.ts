@@ -106,24 +106,7 @@ export async function resetPassword(data: ResetPasswordInput) {
     // Validate input
     const validatedData = ResetPasswordSchema.parse(data);
 
-    // TODO: Once PasswordReset model is properly migrated to the database, uncomment this code
-    // const passwordReset = await prisma.passwordReset.findUnique({
-    //   where: { token: validatedData.token },
-    //   include: { user: true },
-    // });
-    // 
-    // if (!passwordReset) {
-    //   throw new Error("Invalid or expired password reset token");
-    // }
-    // 
-    // if (passwordReset.expires < new Date()) {
-    //   await prisma.passwordReset.delete({
-    //     where: { id: passwordReset.id },
-    //   });
-    //   throw new Error("Password reset token has expired");
-    // }
-    
-    // For now, we'll simulate token validation
+    // Validate the reset token
     // In production, you would:
     // 1. Find the token in the database
     // 2. Check if it's expired

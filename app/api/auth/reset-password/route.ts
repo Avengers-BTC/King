@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
     try {
       // Find the password reset record
-      passwordReset = await (prisma as any).passwordReset.findUnique({
+      passwordReset = await prisma.passwordReset.findUnique({
         where: { token },
       });
 
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
         // Check if token is expired
         if (passwordReset.expires < new Date()) {
           // Remove expired token
-          await (prisma as any).passwordReset.delete({
+          await prisma.passwordReset.delete({
             where: { id: passwordReset.id },
           });
           
