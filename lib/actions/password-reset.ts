@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { z } from "zod";
+import { sendEmail, generateEmailVerificationEmail } from "@/lib/email";
 
 // Schemas for validation
 const ForgotPasswordSchema = z.object({
@@ -190,22 +191,36 @@ export async function sendVerificationEmail(userId: string) {
       },
     });
 
-    // In a real implementation, send email with verification link
-    // For development, just return the token
+    // Generate and send verification email
+    const { subject, html } = generateEmailVerificationEmail(
+      user.email!,
+      verificationToken,
+      user.name || undefined
+    );
+
+    // In development, return the token and link for testing
     if (process.env.NODE_ENV === "development") {
+      const verificationLink = `${process.env.NEXTAUTH_URL}/verify-email?token=${verificationToken}`;
+      // Still send the email in development for testing
+      await sendEmail({ to: user.email!, subject, html });
+      
       return {
         success: true,
         message: "Verification email sent",
-        verificationLink: `${process.env.NEXTAUTH_URL}/verify-email?token=${verificationToken}`,
+        verificationLink,
         token: verificationToken, // Only include in development
       };
     }
+
+    // Send verification email
+    await sendEmail({ to: user.email!, subject, html });
 
     return {
       success: true,
       message: "Verification email sent",
     };
   } catch (error) {
+    console.error('Error sending verification email:', error);
     throw new Error("Failed to send verification email");
   }
 }

@@ -65,12 +65,13 @@ export async function POST(req: Request) {
         );
       }
 
-      // In development, just log the action
-      console.log(`Development mode: Password reset with token: ${token.substring(0, 10)}...`);
+      // In development, log only non-sensitive information
+      if (process.env.NODE_ENV === "development") {
+        console.log("Development mode: Processing password reset request");
+      }
       
       // Hash new password
       const hashedPassword = await bcrypt.hash(password, 12);
-      console.log(`Development mode: New password hash: ${hashedPassword.substring(0, 10)}...`);
 
       return NextResponse.json(
         { message: "Password has been reset successfully (development mode)" },
