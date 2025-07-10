@@ -65,6 +65,7 @@ model User {
   djFollowing     FanFollowing[] @relation("UserFanFollowings")
   chatMessages    ChatMessage[]
   messageReactions MessageReaction[]
+  passwordReset   PasswordReset?
 }
 
 model VerificationToken {
@@ -73,6 +74,15 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Dj {

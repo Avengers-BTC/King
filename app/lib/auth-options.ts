@@ -1,6 +1,6 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { DefaultSession, NextAuthOptions } from "next-auth";
-import { Adapter } from "next-auth/adapters";
+import type { Adapter } from "next-auth/adapters";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
@@ -35,7 +35,7 @@ declare module "next-auth/jwt" {
 
 export const authOptions: NextAuthOptions = {
   debug: false,
-  adapter: PrismaAdapter(prisma) as Adapter,
+  adapter: PrismaAdapter(prisma) as any,
   providers: [    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
       ? [
           GoogleProvider({
