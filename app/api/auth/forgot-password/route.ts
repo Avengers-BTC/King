@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { PrismaClient } from '@prisma/client';
 import crypto from "crypto";
 import { z } from "zod";
 import { sendEmail, generatePasswordResetEmail } from "@/lib/email";

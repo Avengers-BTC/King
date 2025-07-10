@@ -59,19 +59,19 @@ export async function requestPasswordReset(email: string) {
     const resetToken = crypto.randomBytes(32).toString("hex");
     const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
 
-    // TODO: Once PasswordReset model is properly migrated to the database, uncomment this code
-    // await prisma.passwordReset.upsert({
-    //   where: { userId: user.id },
-    //   update: {
-    //     token: resetToken,
-    //     expires: resetTokenExpiry,
-    //   },
-    //   create: {
-    //     userId: user.id,
-    //     token: resetToken,
-    //     expires: resetTokenExpiry,
-    //   },
-    // });
+    // Persist the reset token in the database
+    await prisma.passwordReset.upsert({
+      where: { userId: user.id },
+      update: {
+        token: resetToken,
+        expires: resetTokenExpiry,
+      },
+      create: {
+        userId: user.id,
+        token: resetToken,
+        expires: resetTokenExpiry,
+      },
+    });
 
     // In a real implementation, you would send an email with the reset link
     // For development, just return the token
@@ -131,19 +131,34 @@ export async function resetPassword(data: ResetPasswordInput) {
     // 4. Update their password
     // 5. Delete the used token
 
-    // This is a placeholder for the actual implementation
-    const mockValidToken = validatedData.token.length > 10;
-    
-    if (!mockValidToken) {
+    // Validate the token using the database
+    const passwordReset = await prisma.passwordReset.findUnique({
+      where: { token: validatedData.token },
+    });
+
+    if (!passwordReset || passwordReset.expires < new Date()) {
+      if (passwordReset) {
+        // Delete expired token
+        await prisma.passwordReset.delete({
+          where: { id: passwordReset.id },
+        });
+      }
       throw new Error("Invalid or expired password reset token");
     }
 
     // Hash the new password
     const hashedPassword = await bcrypt.hash(validatedData.password, 12);
 
-    // In a real implementation, update the user's password in the database
-    // For now, just log it
-    console.log(`Password reset successful. New hashed password: ${hashedPassword.substring(0, 10)}...`);
+    // Update the user's password in the database
+    await prisma.user.update({
+      where: { id: passwordReset.userId },
+      data: { password: hashedPassword },
+    });
+
+    // Delete the used password reset token
+    await prisma.passwordReset.delete({
+      where: { id: passwordReset.id },
+    });
 
     return {
       success: true,

@@ -35,7 +35,7 @@ declare module "next-auth/jwt" {
 
 export const authOptions: NextAuthOptions = {
   debug: false,
-  adapter: PrismaAdapter(prisma) as any,
+  adapter: PrismaAdapter(prisma) as Adapter,
   providers: [    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
       ? [
           GoogleProvider({
