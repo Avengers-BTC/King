@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs";
 import { UserRole } from "@prisma/client";
 
 export const authOptions: NextAuthOptions = {
-    adapter: PrismaAdapter(prisma) as any,
+    adapter: PrismaAdapter(prisma),
     providers: [
         // Google OAuth (if credentials are available)
         ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? [

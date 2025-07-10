@@ -41,11 +41,11 @@ export async function updateUserProfile(userId: string, data: ProfileUpdateInput
 
     // Check if username is being updated and if it's already taken
     if (validatedData.username) {
-      const existingUser = await prisma.user.findUnique({
+      const existingUser = await prisma.user.findFirst({
         where: {
           username: validatedData.username,
-          NOT: {
-            id: userId,
+          id: {
+            not: userId,
           },
         },
       });

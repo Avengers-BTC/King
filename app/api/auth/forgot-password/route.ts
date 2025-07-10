@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 
     try {
       // Store token in database
-      await (prisma as any).passwordReset.upsert({
+      await prisma.passwordReset.upsert({
         where: { userId: user.id },
         update: {
           token: resetToken,
