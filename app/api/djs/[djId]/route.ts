@@ -26,8 +26,8 @@ export async function GET(
   context: { params: { djId: string } }
 ) {
   try {
-    const { params } = context;
-    const { djId } = await params;
+    const { djId } = context.params;
+    console.log('Attempting to fetch DJ with ID:', djId);
 
     if (!isValidId(djId)) {
       return NextResponse.json(
@@ -36,6 +36,7 @@ export async function GET(
       );
     }
 
+    console.log('Validated DJ ID, attempting database query');
     const dj = await prisma.dj.findUnique({
       where: { id: djId },
       include: {
@@ -136,8 +137,7 @@ export async function PATCH(
   context: { params: { djId: string } }
 ) {
   try {
-    const { params } = context;
-    const { djId } = await params;
+    const { djId } = context.params;
     if (!isValidId(djId)) {
       return NextResponse.json(
         { error: 'Invalid DJ ID provided' },
@@ -175,7 +175,7 @@ export async function PATCH(
 
     const updatedDj = await prisma.dj.update({
       where: { 
-        id: params.djId 
+        id: djId 
       },
       data,
       include: {

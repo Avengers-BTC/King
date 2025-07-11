@@ -75,7 +75,8 @@ export default function DJDashboard() {
     try {
       if (!user?.id) return;
 
-      const response = await fetch(`/api/djs/${user.id}`);
+      // First get the DJ profile by userId
+      const response = await fetch(`/api/djs?userId=${user.id}`);
       if (!response.ok) {
         if (response.status === 404) {
           // User doesn't have a DJ profile yet
@@ -87,13 +88,20 @@ export default function DJDashboard() {
       }
 
       const data = await response.json();
-      if (!data) {
+      if (!data || data.error) {
         toast.error('DJ profile not found');
         router.push('/signup/dj');
         return;
       }
 
-      setDjProfile(data);
+      // Now fetch the full DJ profile with the DJ's ID
+      const djResponse = await fetch(`/api/djs/${data.id}`);
+      if (!djResponse.ok) {
+        throw new Error('Failed to fetch detailed DJ profile');
+      }
+      const djData = await djResponse.json();
+
+      setDjProfile(djData);
     } catch (error) {
       console.error('Error fetching DJ profile:', error);
       toast.error('Failed to load DJ profile');

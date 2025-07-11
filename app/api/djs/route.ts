@@ -3,10 +3,81 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {  try {
+export async function GET(request: Request) {
+  try {
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit');
+    const userId = searchParams.get('userId');
     
+    // If userId is provided, find just that DJ
+    if (userId) {
+      const dj = await prisma.dj.findUnique({
+        where: { userId },
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+              image: true,
+              username: true,
+              location: true,
+              bio: true,
+              joinDate: true
+            }
+          },
+          events: {
+            where: {
+              date: {
+                gte: new Date()
+              }
+            },
+            orderBy: {
+              date: 'asc'
+            },
+            take: 5,
+            include: {
+              club: {
+                select: {
+                  name: true,
+                  location: true
+                }
+              }
+            }
+          },
+          ratings: {
+            select: {
+              rating: true,
+              user: {
+                select: {
+                  name: true
+                }
+              },
+              createdAt: true
+            },
+            orderBy: {
+              createdAt: 'desc'
+            },
+            take: 10
+          },
+          fanFollowers: {
+            select: {
+              userId: true
+            }
+          }
+        }
+      });
+
+      if (!dj) {
+        return NextResponse.json(
+          { error: 'DJ not found' },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json(dj);
+    }
+
+    // Otherwise, get the list of DJs
     const djs = await prisma.dj.findMany({
       take: limit ? parseInt(limit) : undefined,
       include: {
