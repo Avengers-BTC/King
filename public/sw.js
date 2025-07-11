@@ -8,7 +8,7 @@ const urlsToCache = [
   '/icons/icon-384x384.png',
   '/icons/icon-512x512.png',
   '/images/logo.png',
-  '/images/fallback-image.png',
+  '/offline.html',
   '/sw-register.js',
   // CSS and JS will be cached as they're requested
 ];
@@ -46,6 +46,10 @@ self.addEventListener('fetch', (event) => {
               });
 
             return response;
+          })
+          .catch(() => {
+            // Return offline page for all failed requests
+            return caches.match('/offline.html');
           });
       })
   );
