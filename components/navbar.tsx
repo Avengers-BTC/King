@@ -64,6 +64,7 @@ export function Navbar() {
   const authLinks = [
     { href: '/profile', label: 'Profile' },
     ...(user?.role === 'DJ' ? [{ href: '/dj/dashboard', label: 'DJ Dashboard' }] : [{ href: '/dashboard', label: 'Dashboard' }]),
+    { href: '/settings', label: 'Settings' },
   ];
 
   const userInitials = user?.name
