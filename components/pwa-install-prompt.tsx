@@ -67,11 +67,8 @@ export function useAppInstallation() {
   }, []);
 
   const promptInstall = async () => {
+    // Return false if the prompt event is unavailable (iOS or other cases)
     if (!deferredPromptEvent) {
-      if (isIOS) {
-        // For iOS, we'll just show the manual instructions
-        return false;
-      }
       return false;
     }
     

@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Ensure the icons directory exists
-const iconsDir = path.join(__dirname, 'public', 'icons');
+const iconsDir = path.join(__dirname, '..', 'public', 'icons');
 if (!fs.existsSync(iconsDir)) {
   fs.mkdirSync(iconsDir, { recursive: true });
 }
