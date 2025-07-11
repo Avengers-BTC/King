@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Radio, Music, Users, Heart, ArrowLeft, Share2, MessageCircle, Volume2 } from 'lucide-react';
 import { LiveConnectionStatus } from '@/components/ui/live-connection-status';
+import { LiveStreamPlayer } from '@/components/ui/live-stream-player';
 import { toast } from 'sonner';
 import { getDjChatRoomId } from '@/lib/chat-room-utils';
 
@@ -367,33 +368,31 @@ export default function LiveSessionPage() {
           
           {/* Live Stream Panel */}
           <div className="lg:col-span-2" data-section="live-stream">
-            <Card className="h-full flex flex-col">
-              <CardHeader className="border-b">
-                <CardTitle className="text-xl flex items-center">
-                  <Radio className="w-5 h-5 mr-2 animate-pulse" />
-                  Live Stream
-                </CardTitle>
-              </CardHeader>
-              
-              <CardContent className="flex-grow p-0">
-                <div className="h-[600px] flex flex-col items-center justify-center p-6 text-center">
-                  <Radio className="w-12 h-12 text-red-500 animate-pulse mb-4" />
-                  <h3 className="text-xl font-bold mb-2">Live Audio Coming Soon</h3>
-                  <p className="text-muted-foreground mb-6">
-                    We&apos;re working on bringing live audio streams to our platform.
-                    For now, enjoy the chat and interaction with other fans!
-                  </p>
-                  <Button 
-                    onClick={() => router.push(`/chat/${roomId}`)}
-                    size="lg"
-                    className="mt-4"
-                  >
-                    <MessageCircle className="w-5 h-5 mr-2" />
-                    Join Live Chat Instead
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <LiveStreamPlayer
+              djName={djData?.user?.name || 'DJ'}
+              djImage={djData?.user?.image || undefined}
+              clubName={activeClub || undefined}
+              isLive={isDjLive(djId as string)}
+              listeners={listeners}
+              genre={djData?.genre}
+              onLike={() => {
+                if (session?.user?.role === 'USER') {
+                  handleFollowToggle();
+                }
+              }}
+              onShare={() => {
+                if (navigator.share) {
+                  navigator.share({
+                    title: `${djData?.user?.name} is live!`,
+                    text: `Check out ${djData?.user?.name}'s live DJ session`,
+                    url: window.location.href,
+                  });
+                } else {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success('Link copied to clipboard!');
+                }
+              }}
+            />
           </div>
         </div>
       </div>
