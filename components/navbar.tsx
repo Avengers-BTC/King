@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { InstallAppButton } from '@/components/install-app-button';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -63,6 +64,7 @@ export function Navbar() {
   const authLinks = [
     { href: '/profile', label: 'Profile' },
     ...(user?.role === 'DJ' ? [{ href: '/dj/dashboard', label: 'DJ Dashboard' }] : [{ href: '/dashboard', label: 'Dashboard' }]),
+    { href: '/settings', label: 'Settings' },
   ];
 
   const userInitials = user?.name
@@ -118,6 +120,9 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-4">
+            {/* Install App Button */}
+            <InstallAppButton />
+            
             {/* Theme toggle */}
             <Button
               variant="ghost"
@@ -260,6 +265,20 @@ export function Navbar() {
                     >
                       Join the Nightlife
                     </Link>
+
+                    {/* Install App Option in Mobile Menu */}
+                    <button
+                      className="flex w-full items-center rounded-md p-2 text-sm font-medium text-foreground/60 hover:underline"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        // We'll trigger the install dialog after a short delay to allow the mobile menu to close
+                        setTimeout(() => {
+                          document.dispatchEvent(new CustomEvent('openPwaInstallPrompt'));
+                        }, 300);
+                      }}
+                    >
+                      Install App
+                    </button>
                   </>
                 )}
               </nav>
