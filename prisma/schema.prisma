@@ -66,6 +66,7 @@ model User {
   NotificationPreference NotificationPreference?
   PushSubscription       PushSubscription[]
   sessions               Session[]
+  PasswordReset          PasswordReset?
 }
 
 model VerificationToken {
@@ -306,7 +307,7 @@ model MessageReaction {
 }
 
 model Notification {
-  id        String           @id
+  id        String           @id @default(cuid())
   userId    String
   type      NotificationType
   title     String
@@ -315,7 +316,7 @@ model Notification {
   isRead    Boolean          @default(false)
   actionUrl String?
   createdAt DateTime         @default(now())
-  updatedAt DateTime
+  updatedAt DateTime         @updatedAt
   User      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
@@ -334,7 +335,7 @@ model NotificationPreference {
   momentLikes              Boolean  @default(true)
   systemUpdates            Boolean  @default(true)
   createdAt                DateTime @default(now())
-  updatedAt                DateTime
+  updatedAt                DateTime @updatedAt
   User                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -346,7 +347,7 @@ model PushSubscription {
   auth      String
   userAgent String?
   createdAt DateTime @default(now())
-  updatedAt DateTime
+  updatedAt DateTime @updatedAt
   User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, endpoint])
