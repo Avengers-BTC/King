@@ -1,5 +1,8 @@
 'use client';
 
+// Disable static rendering; render this page dynamically to avoid build-time browser API issues
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
@@ -14,7 +17,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { LiveSession } from '@/components/live-session';
+import NextDynamic from 'next/dynamic';
+// Dynamically load LiveSession on client-side only to avoid AgoraRTC SSR issues
+const LiveSession = NextDynamic(() => import('@/components/live-session').then(mod => mod.LiveSession), { ssr: false });
 import { DeleteProfileModal } from '@/components/delete-profile-modal';
 import { getDjChatRoomId } from '@/lib/chat-room-utils';
 
@@ -397,7 +402,7 @@ export default function DJDashboard() {
                         <Users className="w-4 h-4 mr-2" />
                         Manage Listeners
                       </Button>
-                      <Button variant="outline" className="w-full border-gray-600 text-yellow-500 border-yellow-500">
+                      <Button variant="outline" className="w-full text-yellow-500 border-yellow-500">
                         <Star className="w-4 h-4 mr-2" />
                         Pin Announcement
                       </Button>
